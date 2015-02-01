@@ -47,7 +47,7 @@ class MetadataExtractor:
     Takes a deb file and extracts component metadata from it.
     '''
 
-    def __init__(self, suite_name, component, export_dir, base_url, icon_sizes):
+    def __init__(self, suite_name, component, export_dir, base_url, icon_sizes, icon_finder=None):
         '''
         Initialize the object with List of files.
         '''
@@ -56,7 +56,10 @@ class MetadataExtractor:
         self._export_dir = export_dir
         self._base_url = base_url
 
-        self._icon_finder = AbstractIconFinder(self._suite_name, self._archive_component)
+        if icon_finder:
+            self._icon_finder = icon_finder
+        else:
+            self._icon_finder = AbstractIconFinder(self._suite_name, self._archive_component)
 
         # list of large sizes to scale down, in order to find more icons
         self._large_icon_sizes = xdg_icon_sizes[:]
@@ -325,20 +328,27 @@ class MetadataExtractor:
                 for size in self._icon_sizes:
                     if not size in icon_dict:
                         continue
-                    filepath = (Config()["Dir::Pool"] +
-                                cpt._component + '/' + icon_dict[size][1])
-                    success = self._store_icon(cpt, cpt_export_path, icon_dict[size][0], filepath, size) or success
+                    success = self._store_icon(cpt,
+                                        cpt_export_path,
+                                        icon_dict[size]['icon_fname'],
+                                        icon_dict[size]['deb_fname'],
+                                        size) or success
                 if not success:
                     for size in self._large_icon_sizes:
                         if not size in icon_dict:
                             continue
-                        filepath = (Config()["Dir::Pool"] +
-                                    cpt._component + '/' + icon_dict[size][1])
                         for asize in self._icon_sizes:
-                            success = self._store_icon(cpt, cpt_export_path, icon_dict[size][0], filepath, asize) or success
+                            success = self._store_icon(cpt,
+                                        cpt_export_path,
+                                        icon_dict[size]['icon_fname'],
+                                        icon_dict[size]['deb_fname'],
+                                        asize) or success
                 return success
 
-            cpt.add_ignore_reason("Icon '%s' was not found in the archive or is not available in a suitable size (at least 64x64)." % (icon_str))
+            if ("." in icon_str) and (not self._icon_allowed(icon_str)):
+                cpt.add_ignore_reason("Icon file '%s' uses an unsupported image file format." % (icon_str))
+            else:
+                cpt.add_ignore_reason("Icon '%s' was not found in the archive or is not available in a suitable size (at least 64x64)." % (icon_str))
             return False
 
         return True
