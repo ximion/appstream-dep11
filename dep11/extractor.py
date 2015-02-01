@@ -184,9 +184,14 @@ class MetadataExtractor:
 
         img =  cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
         ctx = cairo.Context(img)
-        ctx.scale(1,1);
-        handler= rsvg.Handle(None, data)
-        handler.render_cairo(ctx)
+
+        svg = rsvg.Handle(data=data)
+
+        wscale = float(width)/float(svg.props.width)
+        hscale = float(height)/float(svg.props.height)
+        ctx.scale(wscale, hscale);
+
+        svg.render_cairo(ctx)
 
         img.write_to_png(store_path)
 
