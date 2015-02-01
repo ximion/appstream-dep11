@@ -26,6 +26,7 @@ import cairo
 import rsvg
 from tempfile import NamedTemporaryFile
 from PIL import Image
+import zlib
 
 from dep11.component import DEP11Component, IconSize
 from dep11.parsers import read_desktop_data, read_appstream_upstream_xml
@@ -42,6 +43,9 @@ class AbstractIconFinder:
     def get_icons(self, pkgname, icon_str, icon_sizes, binid=0):
         return None
 
+    def set_allowed_icon_extensions(self, exts):
+        pass
+
 class MetadataExtractor:
     '''
     Takes a deb file and extracts component metadata from it.
@@ -56,8 +60,11 @@ class MetadataExtractor:
         self._export_dir = export_dir
         self._base_url = base_url
 
+        self._icon_ext_allowed = ('.png', '.svg', '.xcf', '.gif', '.svgz', '.jpg')
+
         if icon_finder:
             self._icon_finder = icon_finder
+            self._icon_finder.set_allowed_icon_extensions(self._icon_ext_allowed)
         else:
             self._icon_finder = AbstractIconFinder(self._suite_name, self._archive_component)
 
@@ -172,8 +179,7 @@ class MetadataExtractor:
         return success
 
     def _icon_allowed(self, icon):
-        ext_allowed = ('.png', '.svg', '.xcf', '.gif', '.svgz', '.jpg')
-        if icon.endswith(ext_allowed):
+        if icon.endswith(self._icon_ext_allowed):
             return True
         return False
 
@@ -209,14 +215,16 @@ class MetadataExtractor:
 
         path = "%s/icons/%s/" % (cpt_export_path, str(size))
         icon_name = "%s_%s" % (cpt.pkgname, os.path.basename(icon_path))
-        if icon_name.endswith(".svg"):
-            svgicon = True
-            icon_name = icon_name.replace(".svg", ".png")
-        cpt.icon = icon_name
+        icon_name_orig = icon_name
 
+        icon_name = icon_name.replace(".svgz", ".png")
+        icon_name = icon_name.replace(".svg", ".png")
         icon_store_location = "{0}/{1}".format(path, icon_name)
+
         if os.path.exists(icon_store_location):
-            # we already extracted that icon, skip this step
+            # we already extracted that icon, skip the extraction step
+            # change scalable vector graphics to their .png extension
+            cpt.icon = icon_name
             return True
 
         # filepath is checked because icon can reside in another binary
@@ -226,6 +234,18 @@ class MetadataExtractor:
         except Exception as e:
             print("Error while extracting icon '%s': %s" % (deb_fname, e))
             return False
+
+        cpt.icon = icon_name
+
+        if icon_name_orig.endswith(".svg"):
+            svgicon = True
+        elif icon_name_orig.endswith(".svgz"):
+            svgicon = True
+            try:
+                icon_data = zlib.decompress(bytes(icon_data), 15+32)
+            except Exception as e:
+                cpt.add_ignore_reason("Unable to decompress SVGZ icon '%s'. Error: %s" % (icon_name, str(e)))
+                return False
 
         if icon_data:
             if not os.path.exists(path):
@@ -299,8 +319,9 @@ class MetadataExtractor:
             if not success:
                 # we cheat and test for larger icons as well, which can be scaled down
                 # first check for a scalable graphic
-                # TODO: Deal with SVGZ icons
                 success = self._match_and_store_icon(cpt, cpt_export_path, pkg_fname, filelist, icon_str + ".svg", "scalable")
+                if not success:
+                    success = self._match_and_store_icon(cpt, cpt_export_path, pkg_fname, filelist, icon_str + ".svgz", "scalable")
                 # then try to scale down larger graphics
                 if not success:
                     for size in self._large_icon_sizes:
