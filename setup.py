@@ -27,4 +27,11 @@ setup(name='dep11',
       author_email='mak@debian.org',
       license='LGPL-2.1+',
       packages=['dep11'],
-      zip_safe=False)
+      zip_safe=False,
+     # install_requires=[
+     #   'yaml',
+     #   'pyrsvg',
+     #   'pillow',
+     #   'python-apt',
+     #]
+     )

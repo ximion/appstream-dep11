@@ -180,6 +180,14 @@ class DEP11Component:
         self._type = val
 
     @property
+    def pkgname(self):
+        return self._pkg
+
+    @property
+    def binid(self):
+        return self._binid
+
+    @property
     def name(self):
         return self._name
 

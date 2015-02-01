@@ -28,7 +28,6 @@ from tempfile import NamedTemporaryFile
 from PIL import Image
 
 from dep11.component import DEP11Component, IconSize
-from dep11.find_metainfo import IconFinder
 from dep11.parsers import read_desktop_data, read_appstream_upstream_xml
 
 from daklib.config import Config
@@ -36,40 +35,34 @@ from daklib.config import Config
 xdg_icon_sizes = [IconSize(64), IconSize(72), IconSize(96), IconSize(128),
                     IconSize(256), IconSize(256), IconSize(512)]
 
+class AbstractIconFinder:
+    def __init__(self, suite_name, archive_component):
+        pass
+
+    def get_icons(self, pkgname, icon_str, icon_sizes, binid=0):
+        return None
+
 class MetadataExtractor:
     '''
     Takes a deb file and extracts component metadata from it.
     '''
 
-    def __init__(self, suite_name, component, pkgname, metainfo_files, binid, pkg_fname):
+    def __init__(self, suite_name, component, export_dir, base_url, icon_sizes):
         '''
         Initialize the object with List of files.
         '''
-        self._filename = pkg_fname
-        self._deb = None
-        try:
-            self._deb = DebFile(self._filename)
-        except Exception as e:
-            print ("Error reading deb file '%s': %s" % (self._filename , e))
-
         self._suite_name = suite_name
-        self._component = component
-        self._pkgname = pkgname
-        self._mfiles = metainfo_files
-        self._binid = binid
-        self._dep11_cpts = list()
+        self._archive_component = component
+        self._export_dir = export_dir
+        self._base_url = base_url
 
-        cnf = Config()
-        component_basepath = "%s/%s/%s-%s" % (self._suite_name, self._component,
-                                self._pkgname, str(self._binid))
-        self._export_path = "%s/%s" % (cnf["Dir::MetaInfo"], component_basepath)
-        self._public_url = "%s/%s" % (cnf["DEP11::Url"], component_basepath)
+        self._icon_finder = AbstractIconFinder(self._suite_name, self._archive_component)
 
         # list of large sizes to scale down, in order to find more icons
         self._large_icon_sizes = xdg_icon_sizes[:]
         # list of icon sizes we want
         self._icon_sizes = list()
-        for strsize in cnf.value_list('DEP11::IconSizes'):
+        for strsize in icon_sizes:
             self._icon_sizes.append(IconSize(strsize))
 
         # remove smaller icons - we don't want to scale up icons later
@@ -77,25 +70,24 @@ class MetadataExtractor:
             del self._large_icon_sizes[0]
 
     @property
-    def metadata(self):
-        return self._dep11_cpts
+    def icon_finder(self):
+        return self._icon_finder
 
-    @metadata.setter
-    def metadata(self, val):
-        self._dep11_cpts = val
+    @icon_finder.setter
+    def icon_finder(self, val):
+        self._icon_finder = val
 
-    def _deb_filelist(self):
+    def _get_deb_filelist(self, deb):
         '''
         Returns a list of all files in a deb package
         '''
         files = list()
-        if not self._deb:
+        if not deb:
             return files
         try:
-            self._deb.data.go(lambda item, data: files.append(item.name))
-        except SystemError:
-            print ("ERROR: List of files for '%s' could not be read" % (self._filename))
-            return None
+            deb.data.go(lambda item, data: files.append(item.name))
+        except SystemError as e:
+            raise e
 
         return files
 
@@ -121,7 +113,7 @@ class MetadataExtractor:
 
         return thumbnails
 
-    def _fetch_screenshots(self, cpt):
+    def _fetch_screenshots(self, cpt, cpt_export_path, cpt_public_url):
         '''
         Fetches screenshots from the given url and
         stores it in png format.
@@ -140,8 +132,8 @@ class MetadataExtractor:
             if not origin_url:
                 # url empty? skip this screenshot
                 continue
-            path = os.path.join(self._export_path, "screenshots")
-            base_url = os.path.join(self._public_url, "screenshots")
+            path = os.path.join(cpt_export_path, "screenshots")
+            base_url = os.path.join(cpt_public_url, "screenshots")
             imgsrc = os.path.join(path, "source", "screenshot-%s.png" % (str(cnt)))
             try:
                 image = urllib.urlopen(origin_url).read()
@@ -195,7 +187,7 @@ class MetadataExtractor:
 
         img.write_to_png(store_path)
 
-    def _store_icon(self, cpt, icon_path, deb_fname, size):
+    def _store_icon(self, cpt, cpt_export_path, icon_path, deb_fname, size):
         '''
         Extracts the icon from the deb package and stores it in the cache.
         '''
@@ -207,8 +199,8 @@ class MetadataExtractor:
         if not os.path.exists(deb_fname):
             return False
 
-        path = "%s/icons/%s/" % (self._export_path, str(size))
-        icon_name = "%s_%s" % (self._pkgname, os.path.basename(icon_path))
+        path = "%s/icons/%s/" % (cpt_export_path, str(size))
+        icon_name = "%s_%s" % (cpt.pkgname, os.path.basename(icon_path))
         if icon_name.endswith(".svg"):
             svgicon = True
             icon_name = icon_name.replace(".svg", ".png")
@@ -252,7 +244,7 @@ class MetadataExtractor:
 
         return False
 
-    def _match_and_store_icon(self, cpt, filelist, icon_name, size):
+    def _match_and_store_icon(self, cpt, cpt_export_path, pkg_fname, filelist, icon_name, size):
         success = False
         if size == "scalable":
             size_str = "scalable"
@@ -264,18 +256,18 @@ class MetadataExtractor:
             return False
         if not size in self._icon_sizes:
             for asize in self._icon_sizes:
-                success = self._store_icon(cpt, filtered[0], self._filename, asize) or success
+                success = self._store_icon(cpt, cpt_export_path, filtered[0], pkg_fname, asize) or success
         else:
-            success = self._store_icon(cpt, filtered[0], self._filename, size)
+            success = self._store_icon(cpt, cpt_export_path, filtered[0], pkg_fname, size)
         return success
 
-    def _fetch_icon(self, cpt, filelist):
+    def _fetch_icon(self, cpt, cpt_export_path, pkg_fname, filelist):
         '''
         Searches for icon if absolute path to an icon
         is not given. Component with invalid icons are ignored
         '''
         if not cpt.icon:
-            # keep metadata if Icon self itself is not present
+            # if we don't know an icon-name or path, just return without error
             return True
 
         icon_str = cpt.icon
@@ -284,7 +276,7 @@ class MetadataExtractor:
         success = False
         if icon_str.startswith("/"):
             if icon_str[1:] in filelist:
-                return self._store_icon(cpt, icon_str[1:], self._filename, IconSize(64))
+                return self._store_icon(cpt, cpt_export_path, icon_str[1:], pkg_fname, IconSize(64))
         else:
             ret = False
             icon_str = os.path.basename (icon_str)
@@ -295,16 +287,16 @@ class MetadataExtractor:
             else:
                 icon_name_ext = icon_str + ".png"
             for size in self._icon_sizes:
-                success = self._match_and_store_icon(cpt, filelist, icon_name_ext, size) or success
+                success = self._match_and_store_icon(cpt, cpt_export_path, pkg_fname, filelist, icon_name_ext, size) or success
             if not success:
                 # we cheat and test for larger icons as well, which can be scaled down
                 # first check for a scalable graphic
                 # TODO: Deal with SVGZ icons
-                success = self._match_and_store_icon(cpt, filelist, icon_str + ".svg", "scalable")
+                success = self._match_and_store_icon(cpt, cpt_export_path, pkg_fname, filelist, icon_str + ".svg", "scalable")
                 # then try to scale down larger graphics
                 if not success:
                     for size in self._large_icon_sizes:
-                        success = self._match_and_store_icon(cpt, filelist, icon_name_ext, size) or success
+                        success = self._match_and_store_icon(cpt, cpt_export_path, pkg_fname, filelist, icon_name_ext, size) or success
 
         if not success:
             last_pixmap = None
@@ -316,7 +308,7 @@ class MetadataExtractor:
                         # the pixmap dir can contain icons in multiple formats, and store_icon() fails in case
                         # the icon format is not allowed. We therefore only exit here, if the icon has a valid format
                         if self._icon_allowed(path):
-                            return self._store_icon(cpt, path, self._filename, IconSize(64))
+                            return self._store_icon(cpt, cpt_export_path, path, pkg_fname, IconSize(64))
                         last_pixmap = path
             if last_pixmap:
                 # we don't do a global icon search anymore, since we've found an (unsuitable) icon
@@ -325,11 +317,9 @@ class MetadataExtractor:
                 return False
 
             # the IconFinder uses it's own, new session, since we run multiprocess here
-            ficon = IconFinder(self._pkgname, icon_str, self._binid, self._suite_name, self._component)
             all_icon_sizes = self._icon_sizes
             all_icon_sizes.extend(self._large_icon_sizes)
-            icon_dict = ficon.get_icons(all_icon_sizes)
-            ficon.close()
+            icon_dict = self._icon_finder.get_icons(cpt.pkgname, icon_str, all_icon_sizes, cpt.binid)
             success = False
             if icon_dict:
                 for size in self._icon_sizes:
@@ -337,7 +327,7 @@ class MetadataExtractor:
                         continue
                     filepath = (Config()["Dir::Pool"] +
                                 cpt._component + '/' + icon_dict[size][1])
-                    success = self._store_icon(cpt, icon_dict[size][0], filepath, size) or success
+                    success = self._store_icon(cpt, cpt_export_path, icon_dict[size][0], filepath, size) or success
                 if not success:
                     for size in self._large_icon_sizes:
                         if not size in icon_dict:
@@ -345,7 +335,7 @@ class MetadataExtractor:
                         filepath = (Config()["Dir::Pool"] +
                                     cpt._component + '/' + icon_dict[size][1])
                         for asize in self._icon_sizes:
-                            success = self._store_icon(cpt, icon_dict[size][0], filepath, asize) or success
+                            success = self._store_icon(cpt, cpt_export_path, icon_dict[size][0], filepath, asize) or success
                 return success
 
             cpt.add_ignore_reason("Icon '%s' was not found in the archive or is not available in a suitable size (at least 64x64)." % (icon_str))
@@ -353,27 +343,40 @@ class MetadataExtractor:
 
         return True
 
-    def process(self):
+    def process(self, pkgname, pkg_fname, metainfo_files, binid=0):
         '''
         Reads the metadata from the xml file and the desktop files.
         And returns a list of DEP11Component objects.
         '''
-        if not self._deb:
+        deb = None
+        try:
+            deb = DebFile(pkg_fname)
+        except Exception as e:
+            print ("Error reading deb file '%s': %s" % (pkg_fname, e))
+        if not deb:
             return list()
-        suitename = self._suite_name
-        filelist = self._deb_filelist()
-        component_dict = dict()
+
+        try:
+            filelist = self._get_deb_filelist(deb)
+        except:
+            print ("ERROR: List of files for '%s' could not be read" % (pkg_fname))
+            filelist = None
 
         if not filelist:
-            compdata = DEP11Component(suitename, self._component, self._binid, self._pkgname)
-            compdata.add_ignore_reason("Could not determine file list for '%s'" % (os.path.basename(self._filename)))
+            compdata = DEP11Component(self._suite_name, self._archive_component, binid, pkgname)
+            compdata.add_ignore_reason("Could not determine file list for '%s'" % (os.path.basename(pkg_fname)))
             return [compdata]
+
+        component_basepath = "%s/%s/%s-%s" % (self._suite_name, self._archive_component,
+                                pkgname, str(binid))
+        export_path = "%s/%s" % (self._export_dir, component_basepath)
+        public_url = "%s/%s" % (self._base_url, component_basepath)
 
         component_dict = dict()
 
         # first cache all additional metadata (.desktop/.pc/etc.) files
         mdata_raw = dict()
-        for meta_file in self._mfiles:
+        for meta_file in metainfo_files:
             if meta_file.endswith(".desktop"):
                 # We have a .desktop file
                 dcontent = None
@@ -381,24 +384,24 @@ class MetadataExtractor:
 
                 error = None
                 try:
-                    dcontent = str(self._deb.data.extractdata(meta_file))
+                    dcontent = str(deb.data.extractdata(meta_file))
                 except Exception as e:
-                    error = "Could not extract file '%s' from package '%s'. Error: %s" % (cpt_id, os.path.basename(self._filename), str(e))
+                    error = "Could not extract file '%s' from package '%s'. Error: %s" % (cpt_id, os.path.basename(pkg_fname), str(e))
                 if not dcontent and not error:
-                    error = "File '%s' from package '%s' appeared empty." % (cpt_id, os.path.basename(self._filename))
+                    error = "File '%s' from package '%s' appeared empty." % (cpt_id, os.path.basename(pkg_fname))
                 mdata_raw[cpt_id] = {'error': error, 'data': dcontent}
 
         # process all AppStream XML files
-        for meta_file in self._mfiles:
+        for meta_file in metainfo_files:
             if meta_file.endswith(".xml"):
                 xml_content = None
-                compdata = DEP11Component(suitename, self._component, self._binid, self._pkgname)
+                compdata = DEP11Component(self._suite_name, self._archive_component, binid, pkgname)
 
                 try:
-                    xml_content = str(self._deb.data.extractdata(meta_file))
+                    xml_content = str(deb.data.extractdata(meta_file))
                 except Exception as e:
                     # inability to read an AppStream XML file is a valid reason to skip the whole package
-                    compdata.add_ignore_reason("Could not extract file '%s' from package '%s'. Error: %s" % (meta_file, self._filename, str(e)))
+                    compdata.add_ignore_reason("Could not extract file '%s' from package '%s'. Error: %s" % (meta_file, pkg_fname, str(e)))
                     return [compdata]
                 if not xml_content:
                     continue
@@ -428,7 +431,7 @@ class MetadataExtractor:
         for mid, mdata in mdata_raw.items():
             if mid.endswith(".desktop"):
                 # We have a .desktop file
-                compdata = DEP11Component(suitename, self._component, self._binid, self._pkgname)
+                compdata = DEP11Component(self._suite_name, self._archive_component, binid, pkgname)
                 compdata.cid = mid
 
                 if mdata['error']:
@@ -444,10 +447,10 @@ class MetadataExtractor:
                         pass
 
         for cpt in component_dict.values():
-            self._fetch_icon(cpt, filelist)
+            self._fetch_icon(cpt, export_path, pkg_fname, filelist)
             if cpt.kind == 'desktop-app' and not cpt.icon:
                 cpt.add_ignore_reason("GUI application, but no valid icon found.")
             else:
-                self._fetch_screenshots(cpt)
+                self._fetch_screenshots(cpt, export_path, public_url)
 
-        self._dep11_cpts = component_dict.values()
+        return component_dict.values()
