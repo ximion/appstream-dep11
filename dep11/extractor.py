@@ -153,7 +153,7 @@ class MetadataExtractor:
                 f.write(image)
                 f.close()
             except Exception as e:
-                cpt.add_hint("Error while downloading screenshot from '%s' for component '%s': %s" % (origin_url, cpt.cid, str(e)))
+                cpt.add_info_hint("Error while downloading screenshot from '%s' for component '%s': %s" % (origin_url, cpt.cid, str(e)))
                 success = False
                 continue
 
@@ -165,7 +165,7 @@ class MetadataExtractor:
                 shot['source-image']['url'] = os.path.join(base_url, "source", "screenshot-%s.png" % (str(cnt)))
                 img.close()
             except Exception as e:
-                cpt.add_hint("Error while reading screenshot data for 'screenshot-%s.png' of component '%s': %s" % (str(cnt), cpt.cid, str(e)))
+                cpt.add_info_hint("Error while reading screenshot data for 'screenshot-%s.png' of component '%s': %s" % (str(cnt), cpt.cid, str(e)))
                 success = False
                 continue
 
@@ -207,7 +207,7 @@ class MetadataExtractor:
         '''
         svgicon = False
         if not self._icon_allowed(icon_path):
-            cpt.add_ignore_reason("Icon file '%s' uses an unsupported image file format." % (os.path.basename(icon_path)))
+            cpt.add_error_hint("Icon file '%s' uses an unsupported image file format." % (os.path.basename(icon_path)))
             return False
 
         if not os.path.exists(deb_fname):
@@ -244,7 +244,7 @@ class MetadataExtractor:
             try:
                 icon_data = zlib.decompress(bytes(icon_data), 15+32)
             except Exception as e:
-                cpt.add_ignore_reason("Unable to decompress SVGZ icon '%s'. Error: %s" % (icon_name, str(e)))
+                cpt.add_error_hint("Unable to decompress SVGZ icon '%s'. Error: %s" % (icon_name, str(e)))
                 return False
 
         if icon_data:
@@ -264,7 +264,7 @@ class MetadataExtractor:
                 try:
                     img = Image.open(stream)
                 except Exception as e:
-                    cpt.add_ignore_reason("Unable to open icon file '%s'. Error: %s" % (icon_name, str(e)))
+                    cpt.add_error_hint("Unable to open icon file '%s'. Error: %s" % (icon_name, str(e)))
                     return False
                 newimg = img.resize((int(size), int(size)), Image.ANTIALIAS)
                 newimg.save(icon_store_location)
@@ -342,7 +342,7 @@ class MetadataExtractor:
             if last_pixmap:
                 # we don't do a global icon search anymore, since we've found an (unsuitable) icon
                 # already
-                cpt.add_ignore_reason("Icon file '%s' uses an unsupported image file format." % (os.path.basename(last_pixmap)))
+                cpt.add_error_hint("Icon file '%s' uses an unsupported image file format." % (os.path.basename(last_pixmap)))
                 return False
 
             # the IconFinder uses it's own, new session, since we run multiprocess here
@@ -372,9 +372,9 @@ class MetadataExtractor:
                 return success
 
             if ("." in icon_str) and (not self._icon_allowed(icon_str)):
-                cpt.add_ignore_reason("Icon file '%s' uses an unsupported image file format." % (icon_str))
+                cpt.add_error_hint("Icon file '%s' uses an unsupported image file format." % (icon_str))
             else:
-                cpt.add_ignore_reason("Icon '%s' was not found in the archive or is not available in a suitable size (at least 64x64)." % (icon_str))
+                cpt.add_error_hint("Icon '%s' was not found in the archive or is not available in a suitable size (at least 64x64)." % (icon_str))
             return False
 
         return True
@@ -399,9 +399,9 @@ class MetadataExtractor:
             filelist = None
 
         if not filelist:
-            compdata = DEP11Component(self._suite_name, self._archive_component, binid, pkgname)
-            compdata.add_ignore_reason("Could not determine file list for '%s'" % (os.path.basename(pkg_fname)))
-            return [compdata]
+            cpt = DEP11Component(self._suite_name, self._archive_component, binid, pkgname)
+            cpt.add_error_hint("Could not determine file list for '%s'" % (os.path.basename(pkg_fname)))
+            return [cpt]
 
         component_basepath = "%s/%s/%s-%s" % (self._suite_name, self._archive_component,
                                 pkgname, str(binid))
@@ -431,52 +431,52 @@ class MetadataExtractor:
         for meta_file in metainfo_files:
             if meta_file.endswith(".xml"):
                 xml_content = None
-                compdata = DEP11Component(self._suite_name, self._archive_component, binid, pkgname)
+                cpt = DEP11Component(self._suite_name, self._archive_component, binid, pkgname)
 
                 try:
                     xml_content = str(deb.data.extractdata(meta_file))
                 except Exception as e:
                     # inability to read an AppStream XML file is a valid reason to skip the whole package
-                    compdata.add_ignore_reason("Could not extract file '%s' from package '%s'. Error: %s" % (meta_file, pkg_fname, str(e)))
-                    return [compdata]
+                    cpt.add_error_hint("Could not extract file '%s' from package '%s'. Error: %s" % (meta_file, pkg_fname, str(e)))
+                    return [cpt]
                 if not xml_content:
                     continue
 
-                read_appstream_upstream_xml(compdata, xml_content)
+                read_appstream_upstream_xml(cpt, xml_content)
                 # Reads the desktop files associated with the xml file
-                if not compdata.cid:
+                if not cpt.cid:
                     # if there is no ID at all, we dump this component, since we cannot do anything with it at all
-                    compdata.add_ignore_reason("Could not determine an id for this component.")
+                    cpt.add_error_hint("Could not determine an id for this component.")
                     continue
 
-                component_dict[compdata.cid] = compdata
-                if compdata.kind == "desktop-app":
-                    data = mdata_raw.get(compdata.cid)
+                component_dict[cpt.cid] = cpt
+                if cpt.kind == "desktop-app":
+                    data = mdata_raw.get(cpt.cid)
                     if not data:
-                        compdata.add_ignore_reason("Found an AppStream upstream XML file, but the associated .desktop file is missing.")
+                        cpt.add_error_hint("Found an AppStream upstream XML file, but the associated .desktop file is missing.")
                         continue
                     if data['error']:
                         # add a non-fatal hint that we couldn't process the .desktop file
-                        compdata.add_hint(data['error'])
+                        cpt.add_info_hint(data['error'])
                     else:
                         # we have a .desktop component, extend it with the associated .desktop data
-                        read_desktop_data(compdata, data['data'])
-                    del mdata_raw[compdata.cid]
+                        read_desktop_data(cpt, data['data'])
+                    del mdata_raw[cpt.cid]
 
         # now process the remaining metadata files, which have not been processed together with the XML
         for mid, mdata in mdata_raw.items():
             if mid.endswith(".desktop"):
                 # We have a .desktop file
-                compdata = DEP11Component(self._suite_name, self._archive_component, binid, pkgname)
-                compdata.cid = mid
+                cpt = DEP11Component(self._suite_name, self._archive_component, binid, pkgname)
+                cpt.cid = mid
 
                 if mdata['error']:
                     # add a fatal hint that we couldn't process this file
-                    compdata.add_ignore_reason(mdata['error'])
+                    cpt.add_error_hint(mdata['error'])
                 else:
-                    ret = read_desktop_data(compdata, mdata['data'])
-                    if ret or not compdata.has_ignore_reason():
-                        component_dict[compdata.cid] = compdata
+                    ret = read_desktop_data(cpt, mdata['data'])
+                    if ret or not cpt.has_ignore_reason():
+                        component_dict[cpt.cid] = cpt
                     else:
                         # this means that reading the .desktop file failed and we should
                         # silently ignore this issue (since the file was marked to be invisible on purpose)
@@ -485,7 +485,7 @@ class MetadataExtractor:
         for cpt in component_dict.values():
             self._fetch_icon(cpt, export_path, pkg_fname, filelist)
             if cpt.kind == 'desktop-app' and not cpt.icon:
-                cpt.add_ignore_reason("GUI application, but no valid icon found.")
+                cpt.add_error_hint("GUI application, but no valid icon found.")
             else:
                 self._fetch_screenshots(cpt, export_path, public_url)
 

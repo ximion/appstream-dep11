@@ -88,7 +88,7 @@ class IconSize:
             print("Warning: Processing asymetric icon.")
         self.size = int(wd)
 
-class ProvidedItemType(object):
+class ProvidedItemType:
     '''
     Types supported as publicly provided interfaces. Used as keys in
     the 'Provides' field
@@ -101,6 +101,14 @@ class ProvidedItemType(object):
     PYTHON_3 = 'python3'
     FIRMWARE = 'firmware'
     CODEC = 'codecs'
+
+class HintImportance:
+    '''
+    Importance of a component parsing hint.
+    '''
+    ERROR = 'errors'
+    WARNING = 'warnings'
+    INFO = 'infos'
 
 class DEP11Component:
     '''
@@ -117,7 +125,7 @@ class DEP11Component:
         self._binid = binid
 
         # properties
-        self._hints = list()
+        self._hints = dict()
         self._ignore = False
 
         self._id = None
@@ -138,15 +146,23 @@ class DEP11Component:
         self._extends = list()
         self._compulsory_for_desktops = list()
 
-    def add_ignore_reason(self, msg):
-        self._hints.append(msg)
+    def add_hint(self, msg, importance):
+        if not self._hints.get(importance):
+            self._hints[importance] = list()
+        self._hints[importance].append(msg)
+
+    def add_error_hint(self, msg):
+        self.add_hint(msg, HintImportance.ERROR)
         self._ignore = True
+
+    def add_warning_hint(self, msg):
+        self.add_hint(msg, HintImportance.WARNING)
+
+    def add_info_hint(self, msg):
+        self.add_hint(msg, HintImportance.INFO)
 
     def has_ignore_reason(self):
         return self._ignore
-
-    def add_hint(self, msg):
-        self._hints.append(msg)
 
     def get_hints_dict(self):
         if not self._hints:
@@ -157,11 +173,21 @@ class DEP11Component:
             hdict['ID'] = self.cid
         if self.kind:
             hdict['Type'] = self.kind
+        if self._pkg:
+            hdict['Package'] = self._pkg
         if self.has_ignore_reason():
             hdict['Ignored'] = True
         hdict['Hints'] = self._hints
 
         return hdict
+
+    def get_hints_yaml(self):
+        if not self._hints:
+            return None
+        return yaml.dump(self.get_hints_dict(), Dumper=DEP11YamlDumper,
+                    default_flow_style=False, explicit_start=True,
+                    explicit_end=False, width=100, indent=2,
+                    allow_unicode=True)
 
     @property
     def cid(self):
@@ -368,15 +394,15 @@ class DEP11Component:
         # validate the basics (if we don't ignore this already)
         if not self.has_ignore_reason():
             if not self.cid:
-                self._hints.append("Component has no valid ID.")
+                self.add_error_hint("Component has no valid ID.")
             if not self.kind:
-                self._hints.append("Component has no type defined.")
+                self.add_error_hint("Component has no type defined.")
             if not self.name:
-                self._hints.append("Component has no name specified.")
+                self.add_error_hint("Component has no name specified.")
             if not self._pkg:
-                self._hints.append("Component has no package defined.")
+                self.add_error_hint("Component has no package defined.")
             if not self.summary:
-                self._hints.append("Component does not contain a short summary.")
+                self.add_error_hint("Component does not contain a short summary.")
 
         d = dict()
         d['Packages'] = [self._pkg]

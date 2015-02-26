@@ -42,12 +42,12 @@ def read_desktop_data(cpt, dcontent):
         items = df.items("Desktop Entry")
         if df.get("Desktop Entry", "Type") != "Application":
             # ignore this file, isn't an application
-            cpt.add_ignore_reason("Not an application.")
+            cpt.add_error_hint("Not an application.")
             return False
         try:
             if df.get("Desktop Entry", "NoDisplay") == "True":
                 # we ignore this .desktop file, shouldn't be displayed
-                cpt.add_ignore_reason("Invisible")
+                cpt.add_error_hint("Invisible")
                 return False
         except:
             # we don't care if the NoDisplay variable doesn't exist
@@ -55,7 +55,7 @@ def read_desktop_data(cpt, dcontent):
             pass
     except Exception as e:
         # this .desktop file is not interesting
-        cpt.add_ignore_reason("Error while reading .desktop data: %s" % str(e))
+        cpt.add_error_hint("Error while reading .desktop data: %s" % str(e))
         return True
 
     # if we reached this step, we are dealing with a GUI desktop app
