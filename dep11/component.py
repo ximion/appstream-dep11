@@ -23,6 +23,7 @@ Contains the definition of a DEP-11 component.
 
 import yaml
 import datetime
+from dep11.utils import str_enc_dec
 
 ###########################################################################
 DEP11_VERSION = "0.6"
@@ -32,22 +33,6 @@ dep11_header_template = {
     "Version": DEP11_VERSION
 }
 ###########################################################################
-
-# for python2.7 not required for python3
-def str_enc_dec(val):
-    '''
-    Handles encoding decoding for localised values
-    '''
-    try:
-        val = unicode(val, "UTF-8", errors='replace')
-    except TypeError:
-        # already unicode
-        pass
-    try:
-        val = str(val)
-    except UnicodeEncodeError:
-        pass
-    return val
 
 class DEP11YamlDumper(yaml.Dumper):
     '''
