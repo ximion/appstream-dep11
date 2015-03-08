@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # Copyright (c) 2014 Abhishek Bhattacharjee <abhishek.bhattacharjee11@gmail.com>
-# Copyright (c) 2014 Matthias Klumpp <mak@debian.org>
+# Copyright (c) 2014-2015 Matthias Klumpp <mak@debian.org>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -473,6 +473,7 @@ class MetadataExtractor:
                 if mdata['error']:
                     # add a fatal hint that we couldn't process this file
                     cpt.add_error_hint(mdata['error'])
+                    component_dict[cpt.cid] = cpt
                 else:
                     ret = read_desktop_data(cpt, mdata['data'])
                     if ret or not cpt.has_ignore_reason():
