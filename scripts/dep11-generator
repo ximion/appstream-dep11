@@ -23,6 +23,7 @@ import apt_pkg
 import gzip
 import tarfile
 import glob
+import park
 from optparse import OptionParser
 from multiprocessing import Pool
 from apt_pkg import TagFile, version_compare
@@ -41,22 +42,22 @@ def safe_move_file(old_fname, new_fname):
         os.remove(new_fname)
     os.rename(old_fname, new_fname)
 
+def get_pkg_id(name, version, arch):
+    return "%s_%s_%s" % (name, version, arch)
+
 class MetadataPool:
     '''
     A pool of component metadata
     '''
 
-    def __init__(self, archive_root, suite_name, component, arch):
+    def __init__(self, db):
         '''
         Initialize the metadata pool.
         '''
-        self._archive_root = archive_root
-        self._suite_name = suite_name
-        self._component = component
-        self._arch = arch
         self._mcpts = dict()
+        self._db = db
 
-    def append_cptdata(self, arch, cptlist):
+    def append_cptdata(self, pkgname, version, arch, cptlist):
         '''
         Makes a list of all the DEP11Component objects in a arch pool
         '''
@@ -65,48 +66,44 @@ class MetadataPool:
             self._mcpts[arch] = list()
             cpts = self._mcpts[arch]
         for c in cptlist:
-            # TODO: Maybe check for duplicates here?
-            # Right now, we can easily filter them out later and complain about it at the maintainer side,
-            # so a hard-check on duplicate ids might not be necessary.
-            cpts.append(c)
+            cpts.append({'version': version, 'cpt': c, 'pkg': pkgname})
+        if not cptlist:
+            cpts.append({'version': version, 'cpt': None, 'pkg': pkgname})
 
-    def export(self, export_dir):
+    def save(self):
         """
         Saves metadata in db (serialized to YAML)
         """
-        hints_dir = os.path.join(export_dir, "hints", self._component)
-        if not os.path.exists(hints_dir):
-            os.makedirs(hints_dir)
 
-        hints_fname = os.path.join(hints_dir, "DEP11Hints_%s.yml.gz" % (self._arch))
-        data_fname = os.path.join(self._archive_root, "dists", self._suite_name, self._component, "Components-%s.yml.gz" % (self._arch))
+        for arch, items in self._mcpts.items():
+            for item in items:
+                cpt = item.get('cpt')
+                version = item['version']
+                idname = get_pkg_id(item['pkg'], version, arch)
 
-        hints_f = gzip.open(hints_fname+".new", 'wb')
-        data_f = gzip.open(data_fname+".new", 'wb')
+                # if the package has no components, mark it as always-ignored
+                if not cpt:
+                    self._db.put("hints/"+idname, "ignore")
+                    continue
 
-        for arch, cpts in self._mcpts.items():
-            for cpt in cpts:
                 # get the metadata in YAML format
                 metadata = cpt.to_yaml_doc()
                 hints_yml = cpt.get_hints_yaml()
                 if not hints_yml:
                     hints_yml = ""
+
                 if not cpt.has_ignore_reason():
-                    data_f.write(metadata)
-                hints_f.write(hints_yml)
+                    self._db.put("data/"+idname, metadata)
+                self._db.put("hints/"+idname, hints_yml)
 
-        data_f.close()
-        safe_move_file(data_fname+".new", data_fname)
-
-        hints_f.close()
-        safe_move_file(hints_fname+".new", hints_fname)
-
-def extract_metadata(mde, sn, pkgname, package_fname, arch):
+def extract_metadata(mde, sn, pkgname, package_fname, version, arch):
     cpts = mde.process(pkgname, package_fname)
 
     data = dict()
     data['arch'] = arch
     data['cpts'] = cpts
+    data['version'] = version
+    data['pkgname'] = pkgname
     data['message'] = "Processed package: %s (%s/%s)" % (pkgname, sn, arch)
     return data
 
@@ -161,6 +158,8 @@ class DEP11Generator:
             os.makedirs(self._export_dir)
 
         self._suites_data = conf['Suites']
+
+        self._db = park.SQLiteStore(os.path.join(self._cache_dir, "cache.db"))
 
         os.chdir(dep11_dir)
         return True
@@ -231,12 +230,12 @@ class DEP11Generator:
                 pkglist = self._get_packages_for(suite_name, component, arch)
 
                 pool = Pool()
-                dpool = MetadataPool(self._archive_root, suite_name, component, arch)
+                dpool = MetadataPool(self._db)
 
                 def parse_results(message):
                     msg = message
                     debugln(msg['message'])
-                    dpool.append_cptdata(msg['arch'], msg['cpts'])
+                    dpool.append_cptdata(msg['pkgname'], msg['version'], msg['arch'], msg['cpts'])
 
                 #iconf = IconFinder(suite.suite_name, component)
                 mde = MetadataExtractor(suite_name, component,
@@ -246,16 +245,50 @@ class DEP11Generator:
                                 None)
                 for pkg in pkglist:
                         package_fname = os.path.join (self._archive_root, pkg['filename'])
+                        idname = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
+
+                        # check if we scanned the package already
+                        if self._db.get("data/"+idname) != None or self._db.get("hints/"+idname) != None:
+                            continue
+
                         if not os.path.exists(package_fname):
                             print('Package not found: %s' % (package_fname))
                             continue
                         pool.apply_async(extract_metadata,
-                                    (mde, suite_name, pkg['name'], package_fname, arch), callback=parse_results)
+                                    (mde, suite_name, pkg['name'], package_fname, pkg['version'], pkg['arch']), callback=parse_results)
                 pool.close()
                 pool.join()
 
                 # save new metadata to the database
-                dpool.export(self._export_dir)
+                dpool.save()
+
+                hints_dir = os.path.join(self._export_dir, "hints", component)
+                if not os.path.exists(hints_dir):
+                    os.makedirs(hints_dir)
+
+                # now write data to disk
+                hints_fname = os.path.join(hints_dir, "DEP11Hints_%s.yml.gz" % (arch))
+                data_fname = os.path.join(self._archive_root, "dists", suite_name, component, "Components-%s.yml.gz" % (arch))
+
+                hints_f = gzip.open(hints_fname+".new", 'wb')
+                data_f = gzip.open(data_fname+".new", 'wb')
+
+                for pkg in pkglist:
+                    idname = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
+                    data = self._db.get("data/"+idname)
+                    if data:
+                        data_f.write(data)
+                    hint = self._db.get("hints/"+idname)
+                    if hint and hint != "ignore":
+                        hints_f.write(hint)
+
+                data_f.close()
+                safe_move_file(data_fname+".new", data_fname)
+
+                hints_f.close()
+                safe_move_file(hints_fname+".new", hints_fname)
+
+                # create icon tarball
                 self.make_icon_tar(suite_name, component)
 
             print("Completed metadata extraction for suite %s/%s" % (suite_name, component))
