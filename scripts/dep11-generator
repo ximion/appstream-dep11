@@ -1,0 +1,290 @@
+#!/usr/bin/python
+# Copyright (C) 2015 Matthias Klumpp <mak@debian.org>
+#
+# Licensed under the GNU General Public License Version 2
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+import os
+import sys
+import yaml
+import apt_pkg
+import gzip
+import tarfile
+import glob
+from optparse import OptionParser
+from multiprocessing import Pool
+from apt_pkg import TagFile, version_compare
+
+from dep11.extractor import MetadataExtractor
+from dep11.component import DEP11Component, DEP11YamlDumper, get_dep11_header
+
+def debugln(msg):
+    if os.environ.get("DEBUG"):
+        print(msg)
+
+def safe_move_file(old_fname, new_fname):
+    if not os.path.isfile(old_fname):
+        return
+    if os.path.isfile(new_fname):
+        os.remove(new_fname)
+    os.rename(old_fname, new_fname)
+
+class MetadataPool:
+    '''
+    A pool of component metadata
+    '''
+
+    def __init__(self, archive_root, suite_name, component, arch):
+        '''
+        Initialize the metadata pool.
+        '''
+        self._archive_root = archive_root
+        self._suite_name = suite_name
+        self._component = component
+        self._arch = arch
+        self._mcpts = dict()
+
+    def append_cptdata(self, arch, cptlist):
+        '''
+        Makes a list of all the DEP11Component objects in a arch pool
+        '''
+        cpts = self._mcpts.get(arch)
+        if not cpts:
+            self._mcpts[arch] = list()
+            cpts = self._mcpts[arch]
+        for c in cptlist:
+            # TODO: Maybe check for duplicates here?
+            # Right now, we can easily filter them out later and complain about it at the maintainer side,
+            # so a hard-check on duplicate ids might not be necessary.
+            cpts.append(c)
+
+    def export(self, export_dir):
+        """
+        Saves metadata in db (serialized to YAML)
+        """
+        hints_dir = os.path.join(export_dir, "hints", self._component)
+        if not os.path.exists(hints_dir):
+            os.makedirs(hints_dir)
+
+        hints_fname = os.path.join(hints_dir, "DEP11Hints_%s.yml.gz" % (self._arch))
+        data_fname = os.path.join(self._archive_root, "dists", self._suite_name, self._component, "Components-%s.yml.gz" % (self._arch))
+
+        hints_f = gzip.open(hints_fname+".new", 'wb')
+        data_f = gzip.open(data_fname+".new", 'wb')
+
+        for arch, cpts in self._mcpts.items():
+            for cpt in cpts:
+                # get the metadata in YAML format
+                metadata = cpt.to_yaml_doc()
+                hints_yml = cpt.get_hints_yaml()
+                if not hints_yml:
+                    hints_yml = ""
+                if not cpt.has_ignore_reason():
+                    data_f.write(metadata)
+                hints_f.write(hints_yml)
+
+        data_f.close()
+        safe_move_file(data_fname+".new", data_fname)
+
+        hints_f.close()
+        safe_move_file(hints_fname+".new", hints_fname)
+
+def extract_metadata(mde, sn, pkgname, package_fname, arch):
+    cpts = mde.process(pkgname, package_fname)
+
+    data = dict()
+    data['arch'] = arch
+    data['cpts'] = cpts
+    data['message'] = "Processed package: %s (%s/%s)" % (pkgname, sn, arch)
+    return data
+
+class DEP11Generator:
+    def __init__(self):
+        pass
+
+    def initialize(self, dep11_dir):
+        conf_fname = os.path.join(dep11_dir, "dep11-config.yml")
+        if not os.path.isfile(conf_fname):
+            print("Could not find configuration! Make sure 'dep11-config.yml' exists!")
+            return False
+
+        f = open(conf_fname, 'r')
+        conf = yaml.safe_load(f.read())
+        f.close()
+
+        if not conf:
+            print("Configuration is empty!")
+            return False
+
+        if not conf.get("ArchiveRoot"):
+            print("You need to specify an archive root path.")
+            return False
+
+        if not conf.get("Suites"):
+            print("Config is missing information about suites!")
+            return False
+
+        if not conf.get("DataUrl"):
+            print("You need to specify an URL where additional data (like screenshots) can be downloaded.")
+            return False
+
+        self._dep11_url = conf.get("DataUrl")
+        self._icon_sizes = conf.get("IconSizes")
+        if not self._icon_sizes:
+            self._icon_sizes = ["128x128", "64x64"]
+
+        self._archive_root = conf.get("ArchiveRoot")
+
+        self._cache_dir = os.path.join(dep11_dir, "cache")
+        if conf.get("CacheDir"):
+            self._cache_dir = conf.get("CacheDir")
+
+        self._export_dir = os.path.join(dep11_dir, "export")
+        if conf.get("ExportDir"):
+            self._export_dir = conf.get("ExportDir")
+
+        if not os.path.exists(self._cache_dir):
+            os.makedirs(self._cache_dir)
+        if not os.path.exists(self._export_dir):
+            os.makedirs(self._export_dir)
+
+        self._suites_data = conf['Suites']
+
+        os.chdir(dep11_dir)
+        return True
+
+
+    def _get_packages_for(self, suite, component, arch):
+        source_path = self._archive_root + "/dists/%s/%s/binary-%s/Packages.gz" % (suite, component, arch)
+
+        f = gzip.open(source_path, 'rb')
+        tagf = TagFile(f)
+        package_dict = dict()
+        for section in tagf:
+            pkg = dict()
+            pkg['arch'] = section['Architecture']
+            pkg['version'] = section['Version']
+            pkg['name'] = section['Package']
+            pkg['filename'] = section['Filename']
+
+            pkg2 = package_dict.get(pkg['name'])
+            if pkg2:
+                compare = version_compare(pkg2['version'], pkg['version'])
+                if compare >= 0:
+                    continue
+            package_dict[pkg['name']] = pkg
+
+        return package_dict.values()
+
+
+    def make_icon_tar(self, suitename, component):
+        '''
+         Generate icons-%(size).tar.gz
+        '''
+        dep11_datadir = os.path.join(self._export_dir, "data")
+        names_seen = set()
+        for size in self._icon_sizes:
+            icon_location_glob = os.path.join (dep11_datadir, suitename,  component, "*", "icons", size, "*.*")
+            tar_location = os.path.join (self._archive_root, "dists", suitename, component)
+
+            icon_tar_fname = os.path.join(tar_location, "icons-%s.tar.gz" % (size))
+            tar = tarfile.open(icon_tar_fname+".new", "w:gz")
+
+            for filename in glob.glob(icon_location_glob):
+                icon_name = os.path.basename(filename)
+                if icon_name in names_seen:
+                    continue
+                tar.add(filename, arcname=icon_name)
+                names_seen.add(icon_name)
+
+            tar.close()
+            safe_move_file(icon_tar_fname+".new", icon_tar_fname)
+
+    def process_suite(self, suite_name):
+        '''
+        Extract new metadata for a given suite.
+        '''
+
+        suite = self._suites_data.get(suite_name)
+        if not suite:
+            print("Suite '%s' not found!" % (suite_name))
+            return False
+
+        dep11_datadir = os.path.join(self._export_dir, "data")
+        if not os.path.exists(dep11_datadir):
+            os.makedirs(dep11_datadir)
+
+        for component in suite['components']:
+            for arch in suite['architectures']:
+                pkglist = self._get_packages_for(suite_name, component, arch)
+
+                pool = Pool()
+                dpool = MetadataPool(self._archive_root, suite_name, component, arch)
+
+                def parse_results(message):
+                    msg = message
+                    debugln(msg['message'])
+                    dpool.append_cptdata(msg['arch'], msg['cpts'])
+
+                #iconf = IconFinder(suite.suite_name, component)
+                mde = MetadataExtractor(suite_name, component,
+                                dep11_datadir,
+                                self._dep11_url,
+                                self._icon_sizes,
+                                None)
+                for pkg in pkglist:
+                        package_fname = os.path.join (self._archive_root, pkg['filename'])
+                        if not os.path.exists(package_fname):
+                            print('Package not found: %s' % (package_fname))
+                            continue
+                        pool.apply_async(extract_metadata,
+                                    (mde, suite_name, pkg['name'], package_fname, arch), callback=parse_results)
+                pool.close()
+                pool.join()
+
+                # save new metadata to the database
+                dpool.export(self._export_dir)
+                self.make_icon_tar(suite_name, component)
+
+            print("Completed metadata extraction for suite %s/%s" % (suite_name, component))
+
+def main():
+    parser = OptionParser()
+    parser.add_option("--refresh-page",
+                  type="string", dest="refresh_page", default=None,
+                  help="refresh a GUI page")
+
+    (options, args) = parser.parse_args()
+    if len(args) == 0:
+        print("You need to specify a command!")
+        sys.exit(1)
+
+    if args[0] == "scan":
+        if len(args) != 3:
+            print("You need to specify a DEP-11 data dir and a suite.")
+            sys.exit(1)
+        gen = DEP11Generator()
+        ret = gen.initialize(args[1])
+        if not ret:
+            print("Initialization failed, can not continue.")
+            sys.exit(2)
+
+        gen.process_suite(args[2])
+    else:
+        print("Run with --help for a list of available command-line options!")
+
+if __name__ == "__main__":
+    apt_pkg.init()
+    main()

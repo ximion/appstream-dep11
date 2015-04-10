@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+#
 # Copyright (c) 2014 Abhishek Bhattacharjee <abhishek.bhattacharjee11@gmail.com>
 # Copyright (c) 2014-2015 Matthias Klumpp <mak@debian.org>
 #
@@ -31,8 +32,6 @@ import zlib
 from dep11.component import DEP11Component, IconSize
 from dep11.parsers import read_desktop_data, read_appstream_upstream_xml
 
-from daklib.config import Config
-
 xdg_icon_sizes = [IconSize(64), IconSize(72), IconSize(96), IconSize(128),
                     IconSize(256), IconSize(256), IconSize(512)]
 
@@ -40,7 +39,7 @@ class AbstractIconFinder:
     def __init__(self, suite_name, archive_component):
         pass
 
-    def get_icons(self, pkgname, icon_str, icon_sizes, binid=0):
+    def get_icons(self, pkgname, icon_str, icon_sizes, binid=-1):
         return None
 
     def set_allowed_icon_extensions(self, exts):
@@ -379,7 +378,7 @@ class MetadataExtractor:
 
         return True
 
-    def process(self, pkgname, pkg_fname, metainfo_files, binid=0):
+    def process(self, pkgname, pkg_fname, metainfo_files=None, binid=-1):
         '''
         Reads the metadata from the xml file and the desktop files.
         And returns a list of DEP11Component objects.
@@ -403,17 +402,27 @@ class MetadataExtractor:
             cpt.add_error_hint("Could not determine file list for '%s'" % (os.path.basename(pkg_fname)))
             return [cpt]
 
-        component_basepath = "%s/%s/%s-%s" % (self._suite_name, self._archive_component,
-                                pkgname, str(binid))
+        if binid > 0:
+            component_basepath = "%s/%s/%s" % (self._suite_name, self._archive_component,
+                                    pkgname, str(binid))
+        else:
+            idname, ext = os.path.splitext(os.path.basename(pkg_fname))
+            if not idname:
+                idname = os.path.basename(pkg_fname)
+            component_basepath = "%s/%s/%s" % (self._suite_name, self._archive_component, idname)
         export_path = "%s/%s" % (self._export_dir, component_basepath)
         public_url = "%s/%s" % (self._base_url, component_basepath)
 
         component_dict = dict()
 
+        # if we don't have an explicit list of interesting files, we simply scan all
+        if not metainfo_files:
+            metainfo_files = filelist
+
         # first cache all additional metadata (.desktop/.pc/etc.) files
         mdata_raw = dict()
         for meta_file in metainfo_files:
-            if meta_file.endswith(".desktop"):
+            if meta_file.endswith(".desktop") and meta_file.startswith("usr/share/applications"):
                 # We have a .desktop file
                 dcontent = None
                 cpt_id = os.path.basename(meta_file)
@@ -429,7 +438,7 @@ class MetadataExtractor:
 
         # process all AppStream XML files
         for meta_file in metainfo_files:
-            if meta_file.endswith(".xml"):
+            if meta_file.endswith(".xml") and meta_file.startswith("usr/share/appdata"):
                 xml_content = None
                 cpt = DEP11Component(self._suite_name, self._archive_component, binid, pkgname)
 

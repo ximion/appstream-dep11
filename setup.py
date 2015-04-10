@@ -19,15 +19,17 @@
 
 from setuptools import setup
 
-setup(name='dep11',
-      version='0.1',
-      description='DEP-11 metadata tools for Debian',
-      url='https://github.com/ximion/dep11', # TODO: Move that to Debian infrastructure soon
-      author='Matthias Klumpp',
-      author_email='mak@debian.org',
-      license='LGPL-2.1+',
-      packages=['dep11'],
-      zip_safe=False,
+setup(name = 'dep11',
+      version = '0.1',
+      description = 'DEP-11 metadata tools for Debian',
+      url = 'https://github.com/ximion/dep11', # TODO: Move that to Debian infrastructure soon
+      author = 'Matthias Klumpp',
+      author_email = 'mak@debian.org',
+      license = 'LGPL-2.1+',
+      packages = ['dep11'],
+      scripts = ['scripts/dep11-generator.py'],
+      use_2to3 = True,
+      zip_safe = False,
      # install_requires=[
      #   'yaml',
      #   'pyrsvg',
