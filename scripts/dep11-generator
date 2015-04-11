@@ -24,6 +24,9 @@ import gzip
 import tarfile
 import glob
 import park
+import shutil
+import time
+from jinja2 import Environment, FileSystemLoader
 from optparse import OptionParser
 from multiprocessing import Pool
 from apt_pkg import TagFile, version_compare
@@ -262,7 +265,7 @@ class DEP11Generator:
                 # save new metadata to the database
                 dpool.save()
 
-                hints_dir = os.path.join(self._export_dir, "hints", component)
+                hints_dir = os.path.join(self._export_dir, "hints", suite_name, component)
                 if not os.path.exists(hints_dir):
                     os.makedirs(hints_dir)
 
@@ -293,6 +296,87 @@ class DEP11Generator:
 
             print("Completed metadata extraction for suite %s/%s" % (suite_name, component))
 
+    def expire_cache(self):
+        dep11_datadir = os.path.join(self._export_dir, "data")
+        if not os.path.exists(dep11_datadir):
+            os.makedirs(dep11_datadir)
+
+        pkgids = set()
+        for suite_name in self._suites_data:
+            suite = self._suites_data[suite_name]
+            for component in suite['components']:
+                for arch in suite['architectures']:
+                    pkglist = self._get_packages_for(suite_name, component, arch)
+                    for pkg in pkglist:
+                        idname = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
+                        pkgids.add(idname)
+
+        # clean caches and database
+        for pkid in self._db.prefix_keys("data/", strip_prefix=True):
+            if pkid in pkgids:
+                continue
+            self._db.delete("data/"+pkid)
+            dirs = glob.glob(os.path.join(dep11_datadir, "*", "*", pkid))
+            if dirs:
+                shutil.rmtree(dirs[0])
+
+        for pkid in self._db.prefix_keys("hints/", strip_prefix=True):
+            if pkid in pkgids:
+                continue
+            self._db.delete("hints/"+pkid)
+            dirs = glob.glob(os.path.join(dep11_datadir, "*", "*", pkid))
+            if dirs:
+                shutil.rmtree(dirs[0])
+
+    def render_template(self, name, out_dir, out_name = None, *args, **kwargs):
+        if not out_name:
+            out_path = os.path.join(out_dir, name)
+        else:
+            out_path = os.path.join(out_dir, out_name)
+        # create subdirectories if necessary
+        out_dir = os.path.dirname(os.path.realpath(out_path))
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
+
+        template_dir = os.path.dirname(os.path.realpath(__file__))
+        template_dir = os.path.realpath(os.path.join(template_dir, "..", "templates", "default"))
+        j2_env = Environment(loader=FileSystemLoader(template_dir))
+
+        template = j2_env.get_template(name)
+        content = template.render(*args, **kwargs)
+        print(out_path)
+        with open(out_path, 'w') as f:
+            f.write(content)
+
+    def update_html(self):
+        dep11_hintsdir = os.path.join(self._export_dir, "hints")
+        if not os.path.exists(dep11_hintsdir):
+            return
+
+        for suite_name in self._suites_data:
+            suite = self._suites_data[suite_name]
+            for component in suite['components']:
+                for arch in suite['architectures']:
+                    export_dir = os.path.join(self._export_dir, "hints_html", suite_name, component)
+                    h_fname = os.path.join(dep11_hintsdir, suite_name, component, "DEP11Hints_%s.yml.gz" % (arch))
+                    if not os.path.isfile(h_fname):
+                        continue
+                    f = gzip.open(h_fname, 'r')
+                    hints_data = yaml.safe_load_all(f.read())
+                    f.close()
+                    if not hints_data:
+                        continue
+
+                    for hint in hints_data:
+                        pkg_name = hint['Package']
+                        errors = hint['Hints'].get('errors', list())
+                        warnings = hint['Hints'].get('warnings', list())
+                        infos = hint['Hints'].get('infos', list())
+
+                        self.render_template("issues_page.html", export_dir, "%s.html" % (pkg_name),
+                                package_name=pkg_name, errors=errors, warnings=warnings, infos=infos, suite=suite_name, time=time.strftime("%c"))
+
+
 def main():
     parser = OptionParser()
     parser.add_option("--refresh-page",
@@ -304,7 +388,9 @@ def main():
         print("You need to specify a command!")
         sys.exit(1)
 
-    if args[0] == "scan":
+    command = args[0]
+
+    if command == "process":
         if len(args) != 3:
             print("You need to specify a DEP-11 data dir and a suite.")
             sys.exit(1)
@@ -315,6 +401,28 @@ def main():
             sys.exit(2)
 
         gen.process_suite(args[2])
+    elif command == "cleanup":
+        if len(args) != 2:
+            print("You need to specify a DEP-11 data dir.")
+            sys.exit(1)
+        gen = DEP11Generator()
+        ret = gen.initialize(args[1])
+        if not ret:
+            print("Initialization failed, can not continue.")
+            sys.exit(2)
+
+        gen.expire_cache()
+    elif command == "update_html":
+        if len(args) != 2:
+            print("You need to specify a DEP-11 data dir.")
+            sys.exit(1)
+        gen = DEP11Generator()
+        ret = gen.initialize(args[1])
+        if not ret:
+            print("Initialization failed, can not continue.")
+            sys.exit(2)
+
+        gen.update_html()
     else:
         print("Run with --help for a list of available command-line options!")
 
