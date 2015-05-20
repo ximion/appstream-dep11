@@ -79,6 +79,9 @@ class MetadataPool:
         Saves metadata in db (serialized to YAML)
         """
 
+        self._db.begin_transaction()
+        self._db_hints.begin_transaction()
+
         for arch, items in self._mcpts.items():
             for item in items:
                 cpt = item.get('cpt')
@@ -99,6 +102,9 @@ class MetadataPool:
                 if not cpt.has_ignore_reason():
                     self._db.set(idname, metadata)
                 self._db_hints.set(idname, hints_yml)
+
+        self._db.end_transaction()
+        self._db_hints.end_transaction()
 
 def extract_metadata(mde, sn, pkgname, package_fname, version, arch):
     cpts = mde.process(pkgname, package_fname)
@@ -164,12 +170,12 @@ class DEP11Generator:
         self._suites_data = conf['Suites']
 
         self._db = DB()
-        if not self._db.open(os.path.join(self._cache_dir, "data_cache.kch"), DB.OWRITER | DB.OCREATE):
+        if not self._db.open(os.path.join(self._cache_dir, "data_cache.kch"), DB.OREADER | DB.OWRITER | DB.OCREATE):
             print("Could not open cache: %s" % (str(self._db.error())), file=sys.stderr)
             return False
 
         self._db_hints = DB()
-        if not self._db_hints.open(os.path.join(self._cache_dir, "hints_cache.kch"), DB.OWRITER | DB.OCREATE):
+        if not self._db_hints.open(os.path.join(self._cache_dir, "hints_cache.kch"), DB.OREADER | DB.OWRITER | DB.OCREATE):
             print("Could not open hints cache: %s" % (str(self._db_hints.error())), file=sys.stderr)
             return False
 

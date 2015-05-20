@@ -228,7 +228,7 @@ def read_appstream_upstream_xml(cpt, xml_content):
     Reads the appdata from the xml file in usr/share/appdata.
     Sets ComponentData properties
     '''
-    root = et.fromstring(xml_content)
+    root = et.fromstring(bytes(xml_content, 'utf-8'))
     key = root.attrib.get('type')
     if key:
         if key == 'desktop':

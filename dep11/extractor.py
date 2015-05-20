@@ -21,7 +21,7 @@ import os
 import fnmatch
 import urllib
 from apt_inst import DebFile
-from io import StringIO
+from io import BytesIO
 
 import zlib
 import cairo
@@ -105,7 +105,7 @@ class MetadataExtractor:
         scale images in three sets of two-dimensions
         (752x423 624x351 and 112x63)
         '''
-        thumbnails = []
+        thumbnails = list()
         name = os.path.basename(imgsrc)
         sizes = ['752x423', '624x351', '112x63']
         for size in sizes:
@@ -190,7 +190,8 @@ class MetadataExtractor:
         img =  cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
         ctx = cairo.Context(img)
 
-        svg = Rsvg.Handle(data=data)
+        handle = Rsvg.Handle()
+        svg = handle.new_from_data(data)
 
         wscale = float(width)/float(svg.props.width)
         hscale = float(height)/float(svg.props.height)
@@ -257,7 +258,7 @@ class MetadataExtractor:
             else:
                 # we don't trust upstream to have the right icon size present, and therefore
                 # always adjust the icon to the right size
-                stream = StringIO.StringIO(icon_data)
+                stream = BytesIO(icon_data)
                 stream.seek(0)
                 img = None
                 try:
