@@ -111,7 +111,7 @@ def extract_metadata(mde, sn, pkgname, package_fname, version, arch):
 
     data = dict()
     data['arch'] = arch
-    data['cpts'] = cpts
+    data['cpts'] = list(cpts)
     data['version'] = version
     data['pkgname'] = pkgname
     data['message'] = "Processed package: %s (%s/%s)" % (pkgname, sn, arch)
@@ -255,6 +255,10 @@ class DEP11Generator:
                     debugln(msg['message'])
                     dpool.append_cptdata(msg['pkgname'], msg['version'], msg['arch'], msg['cpts'])
 
+                def mproc_error(msg):
+                    print(msg)
+                    sys.exit(5)
+
                 #iconf = IconFinder(suite.suite_name, component)
                 mde = MetadataExtractor(suite_name, component,
                                 dep11_datadir,
@@ -273,8 +277,7 @@ class DEP11Generator:
                             print('Package not found: %s' % (package_fname))
                             continue
                         pool.apply_async(extract_metadata,
-                                    (mde, suite_name, pkg['name'], package_fname, pkg['version'], pkg['arch']), callback=parse_results)
-                        #extract_metadata(mde, suite_name, pkg['name'], package_fname, pkg['version'], pkg['arch'])
+                                    (mde, suite_name, pkg['name'], package_fname, pkg['version'], pkg['arch']), callback=parse_results, error_callback=mproc_error)
                 pool.close()
                 pool.join()
 
