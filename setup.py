@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Copyright (C) 2014-2015 Matthias Klumpp <matthias@tenstral.net>
 #
@@ -27,12 +27,10 @@ setup(name = 'dep11',
       author_email = 'mak@debian.org',
       license = 'LGPL-2.1+',
       packages = ['dep11'],
-      scripts = ['scripts/dep11-generator.py'],
-      use_2to3 = True,
+      scripts = ['scripts/dep11-generator'],
       zip_safe = False,
      # install_requires=[
      #   'yaml',
-     #   'pyrsvg',
      #   'pillow',
      #   'python-apt',
      #]

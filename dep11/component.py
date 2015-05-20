@@ -56,7 +56,7 @@ class IconSize:
     size = int()
 
     def __init__(self, size):
-        if isinstance(size, basestring) or isinstance(size, str):
+        if isinstance(size, str):
             self.set_from_string(size)
         else:
             self.size = size

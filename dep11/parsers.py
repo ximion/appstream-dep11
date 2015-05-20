@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Reads AppStream XML metadata and metadata from
@@ -23,10 +23,10 @@ XDG .desktop files.
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 import re
-from ConfigParser import RawConfigParser
+from configparser import RawConfigParser
 import lxml.etree as et
 from xml.sax.saxutils import escape
-import cStringIO as StringIO
+from io import StringIO
 
 from dep11.component import DEP11Component, ProvidedItemType
 from dep11.utils import str_enc_dec
@@ -35,11 +35,12 @@ def read_desktop_data(cpt, dcontent):
     '''
     Parses a .desktop file and sets ComponentData properties
     '''
-    df = RawConfigParser()
-    df.readfp(StringIO.StringIO(dcontent))
+    df = RawConfigParser(allow_no_value=True)
 
     items = None
     try:
+        df.readfp(StringIO(dcontent))
+
         items = df.items("Desktop Entry")
         if df.get("Desktop Entry", "Type") != "Application":
             # ignore this file, isn't an application

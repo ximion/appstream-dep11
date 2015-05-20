@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # Copyright (C) 2015 Matthias Klumpp <mak@debian.org>
 #
 # Licensed under the GNU General Public License Version 2
@@ -23,10 +23,10 @@ import apt_pkg
 import gzip
 import tarfile
 import glob
-import park
 import shutil
 import time
 from jinja2 import Environment, FileSystemLoader
+from kyotocabinet import *
 from optparse import OptionParser
 from multiprocessing import Pool
 from apt_pkg import TagFile, version_compare
@@ -53,12 +53,13 @@ class MetadataPool:
     A pool of component metadata
     '''
 
-    def __init__(self, db):
+    def __init__(self, db, hints_db):
         '''
         Initialize the metadata pool.
         '''
         self._mcpts = dict()
         self._db = db
+        self._db_hints = hints_db
 
     def append_cptdata(self, pkgname, version, arch, cptlist):
         '''
@@ -86,7 +87,7 @@ class MetadataPool:
 
                 # if the package has no components, mark it as always-ignored
                 if not cpt:
-                    self._db.put("hints/"+idname, "ignore")
+                    self._db_hints.set(idname, "ignore")
                     continue
 
                 # get the metadata in YAML format
@@ -96,8 +97,8 @@ class MetadataPool:
                     hints_yml = ""
 
                 if not cpt.has_ignore_reason():
-                    self._db.put("data/"+idname, metadata)
-                self._db.put("hints/"+idname, hints_yml)
+                    self._db.set(idname, metadata)
+                self._db_hints.set(idname, hints_yml)
 
 def extract_metadata(mde, sn, pkgname, package_fname, version, arch):
     cpts = mde.process(pkgname, package_fname)
@@ -162,7 +163,15 @@ class DEP11Generator:
 
         self._suites_data = conf['Suites']
 
-        self._db = park.SQLiteStore(os.path.join(self._cache_dir, "cache.db"))
+        self._db = DB()
+        if not self._db.open(os.path.join(self._cache_dir, "data_cache.kch"), DB.OWRITER | DB.OCREATE):
+            print("Could not open cache: %s" % (str(self._db.error())), file=sys.stderr)
+            return False
+
+        self._db_hints = DB()
+        if not self._db_hints.open(os.path.join(self._cache_dir, "hints_cache.kch"), DB.OWRITER | DB.OCREATE):
+            print("Could not open hints cache: %s" % (str(self._db_hints.error())), file=sys.stderr)
+            return False
 
         os.chdir(dep11_dir)
         return True
@@ -233,7 +242,7 @@ class DEP11Generator:
                 pkglist = self._get_packages_for(suite_name, component, arch)
 
                 pool = Pool()
-                dpool = MetadataPool(self._db)
+                dpool = MetadataPool(self._db, self._db_hints)
 
                 def parse_results(message):
                     msg = message
@@ -251,7 +260,7 @@ class DEP11Generator:
                         idname = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
 
                         # check if we scanned the package already
-                        if self._db.get("data/"+idname) != None or self._db.get("hints/"+idname) != None:
+                        if self._db.get_str(idname) != None or self._db_hints.get_str(idname) != None:
                             continue
 
                         if not os.path.exists(package_fname):
@@ -259,6 +268,7 @@ class DEP11Generator:
                             continue
                         pool.apply_async(extract_metadata,
                                     (mde, suite_name, pkg['name'], package_fname, pkg['version'], pkg['arch']), callback=parse_results)
+                        #extract_metadata(mde, suite_name, pkg['name'], package_fname, pkg['version'], pkg['arch'])
                 pool.close()
                 pool.join()
 
@@ -278,12 +288,12 @@ class DEP11Generator:
 
                 for pkg in pkglist:
                     idname = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
-                    data = self._db.get("data/"+idname)
+                    data = self._db.get_str(idname)
                     if data:
-                        data_f.write(data)
-                    hint = self._db.get("hints/"+idname)
+                        data_f.write(bytes(data, 'utf-8'))
+                    hint = self._db_hints.get_str(idname)
                     if hint and hint != "ignore":
-                        hints_f.write(hint)
+                        hints_f.write(bytes(hint, 'utf-8'))
 
                 data_f.close()
                 safe_move_file(data_fname+".new", data_fname)
@@ -312,18 +322,18 @@ class DEP11Generator:
                         pkgids.add(idname)
 
         # clean caches and database
-        for pkid in self._db.prefix_keys("data/", strip_prefix=True):
+        for pkid in self._db:
             if pkid in pkgids:
                 continue
-            self._db.delete("data/"+pkid)
+            self._db.remove(pkid)
             dirs = glob.glob(os.path.join(dep11_datadir, "*", "*", pkid))
             if dirs:
                 shutil.rmtree(dirs[0])
 
-        for pkid in self._db.prefix_keys("hints/", strip_prefix=True):
+        for pkid in self._db_hints:
             if pkid in pkgids:
                 continue
-            self._db.delete("hints/"+pkid)
+            self._db_hints.remove(pkid)
             dirs = glob.glob(os.path.join(dep11_datadir, "*", "*", pkid))
             if dirs:
                 shutil.rmtree(dirs[0])
@@ -379,9 +389,6 @@ class DEP11Generator:
 
 def main():
     parser = OptionParser()
-    parser.add_option("--refresh-page",
-                  type="string", dest="refresh_page", default=None,
-                  help="refresh a GUI page")
 
     (options, args) = parser.parse_args()
     if len(args) == 0:

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Copyright (c) 2014 Abhishek Bhattacharjee <abhishek.bhattacharjee11@gmail.com>
 # Copyright (c) 2014-2015 Matthias Klumpp <mak@debian.org>
@@ -21,13 +21,13 @@ import os
 import fnmatch
 import urllib
 from apt_inst import DebFile
-import cStringIO as StringIO
+from io import StringIO
 
+import zlib
 import cairo
-import rsvg
+from gi.repository import Rsvg
 from tempfile import NamedTemporaryFile
 from PIL import Image
-import zlib
 
 from dep11.component import DEP11Component, IconSize
 from dep11.parsers import read_desktop_data, read_appstream_upstream_xml
@@ -190,7 +190,7 @@ class MetadataExtractor:
         img =  cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
         ctx = cairo.Context(img)
 
-        svg = rsvg.Handle(data=data)
+        svg = Rsvg.Handle(data=data)
 
         wscale = float(width)/float(svg.props.width)
         hscale = float(height)/float(svg.props.height)
@@ -429,11 +429,11 @@ class MetadataExtractor:
 
                 error = None
                 try:
-                    dcontent = str(deb.data.extractdata(meta_file))
+                    dcontent = str(deb.data.extractdata(meta_file).decode("utf-8"))
                 except Exception as e:
                     error = "Could not extract file '%s' from package '%s'. Error: %s" % (cpt_id, os.path.basename(pkg_fname), str(e))
                 if not dcontent and not error:
-                    error = "File '%s' from package '%s' appeared empty." % (cpt_id, os.path.basename(pkg_fname))
+                    error = "File '%s' from package '%s' appeared to be empty." % (cpt_id, os.path.basename(pkg_fname))
                 mdata_raw[cpt_id] = {'error': error, 'data': dcontent}
 
         # process all AppStream XML files
@@ -443,7 +443,7 @@ class MetadataExtractor:
                 cpt = DEP11Component(self._suite_name, self._archive_component, binid, pkgname)
 
                 try:
-                    xml_content = str(deb.data.extractdata(meta_file))
+                    xml_content = str(deb.data.extractdata(meta_file).decode("utf-8"))
                 except Exception as e:
                     # inability to read an AppStream XML file is a valid reason to skip the whole package
                     cpt.add_error_hint("Could not extract file '%s' from package '%s'. Error: %s" % (meta_file, pkg_fname, str(e)))
