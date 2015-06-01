@@ -342,7 +342,7 @@ class DEP11Component:
         unlocalized = d.get('C')
         if unlocalized:
             to_remove = []
-            for k in d.keys():
+            for k in list(d.keys()):
                 val = d[k]
                 # don't duplicate strings
                 if val == unlocalized and k != 'C':

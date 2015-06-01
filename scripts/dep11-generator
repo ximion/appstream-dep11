@@ -182,6 +182,11 @@ class DEP11Generator:
         os.chdir(dep11_dir)
         return True
 
+    def _get_asset_dir(self):
+        asset_dir = os.path.join(self._export_dir, "assets")
+        if not os.path.exists(asset_dir):
+            os.makedirs(asset_dir)
+        return asset_dir
 
     def _get_packages_for(self, suite, component, arch):
         source_path = self._archive_root + "/dists/%s/%s/binary-%s/Packages.gz" % (suite, component, arch)
@@ -194,6 +199,9 @@ class DEP11Generator:
             pkg['arch'] = section['Architecture']
             pkg['version'] = section['Version']
             pkg['name'] = section['Package']
+            if not section.get('Filename'):
+                print("Package %s-%s has no filename specified." % (pkg['name'], pkg['version']))
+                continue
             pkg['filename'] = section['Filename']
 
             pkg2 = package_dict.get(pkg['name'])
@@ -206,28 +214,39 @@ class DEP11Generator:
         return package_dict.values()
 
 
-    def make_icon_tar(self, suitename, component):
+    def make_icon_tar(self, suitename, component, pkglist):
         '''
          Generate icons-%(size).tar.gz
         '''
-        dep11_datadir = os.path.join(self._export_dir, "data")
+        dep11_assetdir = self._get_asset_dir()
         names_seen = set()
-        for size in self._icon_sizes:
-            icon_location_glob = os.path.join (dep11_datadir, suitename,  component, "*", "icons", size, "*.*")
-            tar_location = os.path.join (self._archive_root, "dists", suitename, component)
+        tar_location = os.path.join(self._export_dir, "dep11", suitename, component)
 
-            icon_tar_fname = os.path.join(tar_location, "icons-%s.tar.gz" % (size))
-            tar = tarfile.open(icon_tar_fname+".new", "w:gz")
+        size_tars = dict()
 
-            for filename in glob.glob(icon_location_glob):
-                icon_name = os.path.basename(filename)
-                if icon_name in names_seen:
-                    continue
-                tar.add(filename, arcname=icon_name)
-                names_seen.add(icon_name)
+        for pkg in pkglist:
+            idname = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
 
+            for size in self._icon_sizes:
+                icon_location_glob = os.path.join (dep11_assetdir, component, idname, "icons", size, "*.*")
+
+                tar = None
+                if size not in size_tars:
+                    icon_tar_fname = os.path.join(tar_location, "icons-%s.tar.gz" % (size))
+                    size_tars[size] = tarfile.open(icon_tar_fname+".new", "w:gz")
+                tar = size_tars[size]
+
+                for filename in glob.glob(icon_location_glob):
+                    icon_name = os.path.basename(filename)
+                    if icon_name in names_seen:
+                        continue
+                    tar.add(filename, arcname=icon_name)
+                    names_seen.add(icon_name)
+
+        for tar in size_tars.values():
             tar.close()
-            safe_move_file(icon_tar_fname+".new", icon_tar_fname)
+            # FIXME Ugly....
+            safe_move_file(tar.name, tar.name.replace(".new", ""))
 
     def process_suite(self, suite_name):
         '''
@@ -239,11 +258,10 @@ class DEP11Generator:
             print("Suite '%s' not found!" % (suite_name))
             return False
 
-        dep11_datadir = os.path.join(self._export_dir, "data")
-        if not os.path.exists(dep11_datadir):
-            os.makedirs(dep11_datadir)
+        dep11_assetdir = self._get_asset_dir()
 
         for component in suite['components']:
+            all_cpt_pkgs = list()
             for arch in suite['architectures']:
                 pkglist = self._get_packages_for(suite_name, component, arch)
 
@@ -261,23 +279,24 @@ class DEP11Generator:
 
                 #iconf = IconFinder(suite.suite_name, component)
                 mde = MetadataExtractor(suite_name, component,
-                                dep11_datadir,
+                                dep11_assetdir,
                                 self._dep11_url,
                                 self._icon_sizes,
                                 None)
+
                 for pkg in pkglist:
-                        package_fname = os.path.join (self._archive_root, pkg['filename'])
-                        idname = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
+                    package_fname = os.path.join (self._archive_root, pkg['filename'])
+                    idname = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
 
-                        # check if we scanned the package already
-                        if self._db.get_str(idname) != None or self._db_hints.get_str(idname) != None:
-                            continue
+                    # check if we scanned the package already
+                    if self._db.get_str(idname) or self._db_hints.get_str(idname):
+                        continue
 
-                        if not os.path.exists(package_fname):
-                            print('Package not found: %s' % (package_fname))
-                            continue
-                        pool.apply_async(extract_metadata,
-                                    (mde, suite_name, pkg['name'], package_fname, pkg['version'], pkg['arch']), callback=parse_results, error_callback=mproc_error)
+                    if not os.path.exists(package_fname):
+                        print('Package not found: %s' % (package_fname))
+                        continue
+                    pool.apply_async(extract_metadata,
+                                (mde, suite_name, pkg['name'], package_fname, pkg['version'], pkg['arch']), callback=parse_results, error_callback=mproc_error)
                 pool.close()
                 pool.join()
 
@@ -287,10 +306,13 @@ class DEP11Generator:
                 hints_dir = os.path.join(self._export_dir, "hints", suite_name, component)
                 if not os.path.exists(hints_dir):
                     os.makedirs(hints_dir)
+                dep11_dir = os.path.join(self._export_dir, "dep11", suite_name, component)
+                if not os.path.exists(dep11_dir):
+                    os.makedirs(dep11_dir)
 
                 # now write data to disk
                 hints_fname = os.path.join(hints_dir, "DEP11Hints_%s.yml.gz" % (arch))
-                data_fname = os.path.join(self._archive_root, "dists", suite_name, component, "Components-%s.yml.gz" % (arch))
+                data_fname = os.path.join(dep11_dir, "Components-%s.yml.gz" % (arch))
 
                 hints_f = gzip.open(hints_fname+".new", 'wb')
                 data_f = gzip.open(data_fname+".new", 'wb')
@@ -310,15 +332,15 @@ class DEP11Generator:
                 hints_f.close()
                 safe_move_file(hints_fname+".new", hints_fname)
 
-                # create icon tarball
-                self.make_icon_tar(suite_name, component)
+                all_cpt_pkgs.extend(pkglist)
+
+            # create icon tarball
+            self.make_icon_tar(suite_name, component, all_cpt_pkgs)
 
             print("Completed metadata extraction for suite %s/%s" % (suite_name, component))
 
     def expire_cache(self):
-        dep11_datadir = os.path.join(self._export_dir, "data")
-        if not os.path.exists(dep11_datadir):
-            os.makedirs(dep11_datadir)
+        dep11_assetdir = self._get_asset_dir()
 
         pkgids = set()
         for suite_name in self._suites_data:
@@ -335,7 +357,7 @@ class DEP11Generator:
             if pkid in pkgids:
                 continue
             self._db.remove(pkid)
-            dirs = glob.glob(os.path.join(dep11_datadir, "*", "*", pkid))
+            dirs = glob.glob(os.path.join(dep11_assetdir, "*", pkid))
             if dirs:
                 shutil.rmtree(dirs[0])
 
@@ -343,7 +365,7 @@ class DEP11Generator:
             if pkid in pkgids:
                 continue
             self._db_hints.remove(pkid)
-            dirs = glob.glob(os.path.join(dep11_datadir, "*", "*", pkid))
+            dirs = glob.glob(os.path.join(dep11_assetdir, "*", pkid))
             if dirs:
                 shutil.rmtree(dirs[0])
 

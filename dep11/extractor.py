@@ -145,7 +145,7 @@ class MetadataExtractor:
             base_url = os.path.join(cpt_public_url, "screenshots")
             imgsrc = os.path.join(path, "source", "screenshot-%s.png" % (str(cnt)))
             try:
-                image = urllib.urlopen(origin_url).read()
+                image = urllib.request.urlopen(origin_url).read()
                 if not os.path.exists(os.path.dirname(imgsrc)):
                     os.makedirs(os.path.dirname(imgsrc))
                 f = open(imgsrc, 'wb')
@@ -404,13 +404,13 @@ class MetadataExtractor:
             return [cpt]
 
         if binid > 0:
-            component_basepath = "%s/%s/%s" % (self._suite_name, self._archive_component,
+            component_basepath = "%s/%s" % (self._archive_component,
                                     pkgname, str(binid))
         else:
             idname, ext = os.path.splitext(os.path.basename(pkg_fname))
             if not idname:
                 idname = os.path.basename(pkg_fname)
-            component_basepath = "%s/%s/%s" % (self._suite_name, self._archive_component, idname)
+            component_basepath = "%s/%s" % (self._archive_component, idname)
         export_path = "%s/%s" % (self._export_dir, component_basepath)
         public_url = "%s/%s" % (self._base_url, component_basepath)
 

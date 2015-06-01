@@ -94,11 +94,11 @@ def read_desktop_data(cpt, dcontent):
                         [set(val) for val in
                             cpt.keywords.values()]:
                         cpt.keywords.update(
-                            {'C': map(str_enc_dec, value)}
+                            {'C': list(map(str_enc_dec, value))}
                         )
                 else:
                     cpt.keywords = {
-                        'C': map(str_enc_dec, value)
+                        'C': list(map(str_enc_dec, value))
                     }
             else:
                 if cpt.keywords:
@@ -106,11 +106,11 @@ def read_desktop_data(cpt, dcontent):
                         [set(val) for val in
                             cpt.keywords.values()]:
                         cpt.keywords.update(
-                            {key[9:-1]: map(str_enc_dec, value)}
+                            {key[9:-1]: list(map(str_enc_dec, value))}
                         )
                 else:
                     cpt.keywords = {
-                        key[9:-1]: map(str_enc_dec, value)
+                        key[9:-1]: list(map(str_enc_dec, value))
                     }
         elif key == 'mimetype':
             value = value.split(';')
