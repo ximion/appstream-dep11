@@ -317,6 +317,9 @@ class DEP11Generator:
                 hints_f = gzip.open(hints_fname+".new", 'wb')
                 data_f = gzip.open(data_fname+".new", 'wb')
 
+                dep11_header = get_dep11_header(suite_name, component)
+                data_f.write(bytes(dep11_header, 'utf-8'))
+
                 for pkg in pkglist:
                     idname = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
                     data = self._db.get_str(idname)
