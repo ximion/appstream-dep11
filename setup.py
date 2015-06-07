@@ -27,7 +27,7 @@ setup(name = 'dep11',
       author_email = 'mak@debian.org',
       license = 'LGPL-2.1+',
       packages = ['dep11'],
-      scripts = ['scripts/dep11-generator'],
+      scripts = ['scripts/dep11-generator', 'scripts/dep11-validate'],
       zip_safe = False,
      # install_requires=[
      #   'yaml',
