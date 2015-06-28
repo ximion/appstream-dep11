@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 #
 # Copyright (C) 2014-2015 Matthias Klumpp <mak@debian.org>
 #
@@ -19,6 +19,7 @@
 
 import sys
 import yaml
+import gzip
 import xml.etree.ElementTree as ET
 from optparse import OptionParser
 from voluptuous import Schema, Required, All, Any, Length, Range, Match, Url
@@ -143,7 +144,7 @@ class DEP11Validator:
     def _test_custom_objects(self, lines):
         ret = True
         for i in range(0, len(lines)):
-            if "!!python/" in lines[i]:
+            if b"!!python/" in lines[i]:
                 self.add_issue("Python object encoded in line %i." % (i))
                 ret = False
         return ret
@@ -182,7 +183,11 @@ class DEP11Validator:
         ret = True
         ids_found = dict()
 
-        f = open(fname, 'r')
+        f = None
+        if fname.endswith(".gz"):
+            f = gzip.open(fname, 'r')
+        else:
+            f = open(fname, 'r')
         lines = f.readlines()
         f.seek(0)
 

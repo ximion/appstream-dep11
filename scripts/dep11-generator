@@ -1,4 +1,5 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
+#
 # Copyright (C) 2015 Matthias Klumpp <mak@debian.org>
 #
 # Licensed under the GNU General Public License Version 2
