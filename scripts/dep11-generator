@@ -275,6 +275,8 @@ class DEP11Generator:
                     dpool.append_cptdata(msg['pkgname'], msg['version'], msg['arch'], msg['cpts'])
 
                 def mproc_error(msg):
+                    pool.close()
+                    pool.join()
                     print(msg)
                     sys.exit(5)
 
