@@ -228,7 +228,21 @@ def read_appstream_upstream_xml(cpt, xml_content):
     Reads the appdata from the xml file in usr/share/appdata.
     Sets ComponentData properties
     '''
-    root = et.fromstring(bytes(xml_content, 'utf-8'))
+    root = None
+    try:
+        root = et.fromstring(bytes(xml_content, 'utf-8'))
+    except Exception as e:
+        cpt.add_error_hint("Unable to parse AppStream upstream XML: %s" % (str(e)))
+        return
+    if root is None:
+        cpt.add_error_hint("Unable to parse AppStream upstream XML: An unknown error appeared.")
+
+    if root.tag == "application":
+        # we parse ancient AppStream XML, but it is a good idea to update it to make use of newer features, remove some ancient
+        # oddities and to simplify the parser in future. So we add a hint for that.
+        cpt.add_info_hint("The AppStream etadata should be updated to follow a more recent version of the spec." +
+                        "Please consult http://freedesktop.org/software/appstream/docs/chap-Quickstart.html for more information.")
+
     key = root.attrib.get('type')
     if key:
         if key == 'desktop':
