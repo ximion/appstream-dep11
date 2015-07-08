@@ -20,6 +20,7 @@
 import os
 import fnmatch
 import urllib
+import ssl
 from apt_inst import DebFile
 from io import BytesIO
 
@@ -144,8 +145,20 @@ class MetadataExtractor:
             path = os.path.join(cpt_export_path, "screenshots")
             base_url = os.path.join(cpt_public_url, "screenshots")
             imgsrc = os.path.join(path, "source", "screenshot-%s.png" % (str(cnt)))
+
+            # The Debian services use a custom setup for SSL verification, not trusting global CAs and
+            # only Debian itself. If we are running on such a setup, ensure we load the global CA certs
+            # in order to establish HTTPS connections to foreign services.
+            # For more information, see https://wiki.debian.org/ServicesSSL
+            context = None
+            ca_path = '/etc/ssl/ca-global'
+            if os.path.isdir(ca_path):
+                ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH, capath=ca_path)
+            else:
+                ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+
             try:
-                image = urllib.request.urlopen(origin_url).read()
+                image = urllib.request.urlopen(origin_url, context=ssl_context).read()
                 if not os.path.exists(os.path.dirname(imgsrc)):
                     os.makedirs(os.path.dirname(imgsrc))
                 f = open(imgsrc, 'wb')
