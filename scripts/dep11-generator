@@ -29,7 +29,7 @@ import time
 from jinja2 import Environment, FileSystemLoader
 from kyotocabinet import *
 from optparse import OptionParser
-from multiprocessing import Pool
+from dep11.multiprocessing import *
 
 from dep11.extractor import MetadataExtractor
 from dep11.component import DEP11Component, DEP11YamlDumper, get_dep11_header
@@ -117,7 +117,8 @@ def extract_metadata(mde, sn, pkgname, package_fname, version, arch):
     data['version'] = version
     data['pkgname'] = pkgname
     data['message'] = "Processed package: %s (%s/%s)" % (pkgname, sn, arch)
-    return data
+
+    return (PROC_STATUS_SUCCESS, data)
 
 class DEP11Generator:
     def __init__(self):
@@ -244,19 +245,18 @@ class DEP11Generator:
             for arch in suite['architectures']:
                 pkglist = self._get_packages_for(suite_name, component, arch)
 
-                pool = Pool(maxtasksperchild=8)
+                pool = ExtractorProcessPool(maxtasksperchild=8)
                 dpool = MetadataPool(self._db, self._db_hints)
 
                 def parse_results(message):
-                    msg = message
+                    (code, msg) = message
+                    if code != PROC_STATUS_SUCCESS:
+                        print("######\nERROR:\n#\n%s" % (str(msg)))
+                        pool.terminate()
+                        pool.join()
+                        sys.exit(5)
                     debugln(msg['message'])
                     dpool.append_cptdata(msg['pkgname'], msg['version'], msg['arch'], msg['cpts'])
-
-                def mproc_error(msg):
-                    pool.close()
-                    pool.join()
-                    print(msg)
-                    sys.exit(5)
 
                 iconf = ZGrepIconFinder(suite_name, component, arch, self._archive_root)
                 mde = MetadataExtractor(suite_name, component,
@@ -277,7 +277,7 @@ class DEP11Generator:
                         print('Package not found: %s' % (package_fname))
                         continue
                     pool.apply_async(extract_metadata,
-                                (mde, suite_name, pkg['name'], package_fname, pkg['version'], pkg['arch']), callback=parse_results, error_callback=mproc_error)
+                                (mde, suite_name, pkg['name'], package_fname, pkg['version'], pkg['arch']), callback=parse_results)
                 pool.close()
                 pool.join()
 
