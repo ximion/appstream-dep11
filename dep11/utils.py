@@ -16,10 +16,12 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# for python2.7 not required for python3
+import gzip
+from apt_pkg import TagFile, version_compare
+
 def str_enc_dec(val):
     '''
-    Handles encoding decoding for localised values
+    Handles encoding decoding for localized values.
     '''
 
     if isinstance(val, str):
@@ -27,3 +29,28 @@ def str_enc_dec(val):
     val = val.decode("utf-8", "replace")
 
     return val
+
+def read_packages_dict_from_file(archive_root, suite, component, arch):
+    source_path = archive_root + "/dists/%s/%s/binary-%s/Packages.gz" % (suite, component, arch)
+
+    f = gzip.open(source_path, 'rb')
+    tagf = TagFile(f)
+    package_dict = dict()
+    for section in tagf:
+        pkg = dict()
+        pkg['arch'] = section['Architecture']
+        pkg['version'] = section['Version']
+        pkg['name'] = section['Package']
+        if not section.get('Filename'):
+            print("Package %s-%s has no filename specified." % (pkg['name'], pkg['version']))
+            continue
+        pkg['filename'] = section['Filename']
+
+        pkg2 = package_dict.get(pkg['name'])
+        if pkg2:
+            compare = version_compare(pkg2['version'], pkg['version'])
+            if compare >= 0:
+                continue
+        package_dict[pkg['name']] = pkg
+
+    return package_dict

@@ -30,10 +30,11 @@ from jinja2 import Environment, FileSystemLoader
 from kyotocabinet import *
 from optparse import OptionParser
 from multiprocessing import Pool
-from apt_pkg import TagFile, version_compare
 
 from dep11.extractor import MetadataExtractor
 from dep11.component import DEP11Component, DEP11YamlDumper, get_dep11_header
+from dep11.iconfinder import ZGrepIconFinder
+from dep11.utils import read_packages_dict_from_file
 
 def debugln(msg):
     if os.environ.get("DEBUG"):
@@ -190,30 +191,7 @@ class DEP11Generator:
         return asset_dir
 
     def _get_packages_for(self, suite, component, arch):
-        source_path = self._archive_root + "/dists/%s/%s/binary-%s/Packages.gz" % (suite, component, arch)
-
-        f = gzip.open(source_path, 'rb')
-        tagf = TagFile(f)
-        package_dict = dict()
-        for section in tagf:
-            pkg = dict()
-            pkg['arch'] = section['Architecture']
-            pkg['version'] = section['Version']
-            pkg['name'] = section['Package']
-            if not section.get('Filename'):
-                print("Package %s-%s has no filename specified." % (pkg['name'], pkg['version']))
-                continue
-            pkg['filename'] = section['Filename']
-
-            pkg2 = package_dict.get(pkg['name'])
-            if pkg2:
-                compare = version_compare(pkg2['version'], pkg['version'])
-                if compare >= 0:
-                    continue
-            package_dict[pkg['name']] = pkg
-
-        return package_dict.values()
-
+        return read_packages_dict_from_file(self._archive_root, suite, component, arch).values()
 
     def make_icon_tar(self, suitename, component, pkglist):
         '''
@@ -266,7 +244,7 @@ class DEP11Generator:
             for arch in suite['architectures']:
                 pkglist = self._get_packages_for(suite_name, component, arch)
 
-                pool = Pool()
+                pool = Pool(maxtasksperchild=8)
                 dpool = MetadataPool(self._db, self._db_hints)
 
                 def parse_results(message):
@@ -280,12 +258,12 @@ class DEP11Generator:
                     print(msg)
                     sys.exit(5)
 
-                #iconf = IconFinder(suite.suite_name, component)
+                iconf = ZGrepIconFinder(suite_name, component, arch, self._archive_root)
                 mde = MetadataExtractor(suite_name, component,
                                 dep11_assetdir,
                                 self._dep11_url,
                                 self._icon_sizes,
-                                None)
+                                iconf)
 
                 for pkg in pkglist:
                     package_fname = os.path.join (self._archive_root, pkg['filename'])

@@ -32,19 +32,10 @@ from PIL import Image
 
 from dep11.component import DEP11Component, IconSize
 from dep11.parsers import read_desktop_data, read_appstream_upstream_xml
+from dep11.iconfinder import AbstractIconFinder
 
 xdg_icon_sizes = [IconSize(64), IconSize(72), IconSize(96), IconSize(128),
                     IconSize(256), IconSize(256), IconSize(512)]
-
-class AbstractIconFinder:
-    def __init__(self, suite_name, archive_component):
-        pass
-
-    def get_icons(self, pkgname, icon_str, icon_sizes, binid=-1):
-        return None
-
-    def set_allowed_icon_extensions(self, exts):
-        pass
 
 class MetadataExtractor:
     '''
@@ -361,7 +352,7 @@ class MetadataExtractor:
             # the IconFinder uses it's own, new session, since we run multiprocess here
             all_icon_sizes = self._icon_sizes
             all_icon_sizes.extend(self._large_icon_sizes)
-            icon_dict = self._icon_finder.get_icons(cpt.pkgname, icon_str, all_icon_sizes, cpt.binid)
+            icon_dict = self._icon_finder.find_icons(cpt.pkgname, icon_str, all_icon_sizes, cpt.binid)
             success = False
             if icon_dict:
                 for size in self._icon_sizes:
