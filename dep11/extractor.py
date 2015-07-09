@@ -19,7 +19,7 @@
 
 import os
 import fnmatch
-import urllib
+import urllib.request
 import ssl
 from apt_inst import DebFile
 from io import BytesIO
