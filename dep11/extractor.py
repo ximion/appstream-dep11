@@ -149,7 +149,10 @@ class MetadataExtractor:
                 ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
 
             try:
-                image = urllib.request.urlopen(origin_url, context=ssl_context).read()
+                # FIXME: The context parameter is only supported since Python 3.4.3, which is not
+                # yet widely available, so we can't use it here...
+                #! image = urllib.request.urlopen(origin_url, context=ssl_context).read()
+                image = urllib.request.urlopen(origin_url).read()
                 if not os.path.exists(os.path.dirname(imgsrc)):
                     os.makedirs(os.path.dirname(imgsrc))
                 f = open(imgsrc, 'wb')
