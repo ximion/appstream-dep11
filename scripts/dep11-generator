@@ -30,6 +30,7 @@ from jinja2 import Environment, FileSystemLoader
 from kyotocabinet import *
 from optparse import OptionParser
 from dep11.multiprocessing import *
+import multiprocessing as mp
 
 from dep11.extractor import MetadataExtractor
 from dep11.component import DEP11Component, DEP11YamlDumper, get_dep11_header
@@ -239,6 +240,11 @@ class DEP11Generator:
             return False
 
         dep11_assetdir = self._get_asset_dir()
+
+        # We need 'forkserver' as startup method to prevent deadlocks on join()
+        # Something in the extractor is doing weird things, makes joining impossible
+        # when using simple fork as startup method.
+        mp.set_start_method('forkserver')
 
         for component in suite['components']:
             all_cpt_pkgs = list()
