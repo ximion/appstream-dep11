@@ -121,7 +121,7 @@ class ZGrepIconFinder(AbstractIconFinder):
             else:
                 # some software doesn't store icons in sized XDG directories.
                 # catch these here, and assume that the size is 64x64
-                flist = self._query_icon(None, package, icon)
+                flist = self._query_icon(None, icon)
                 if flist:
                     size_map_flist[IconSize(64)] = flist
 
