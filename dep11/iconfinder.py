@@ -17,7 +17,8 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 import os
-from subprocess import check_output
+import gzip
+import re
 from dep11.component import IconSize
 from dep11.utils import read_packages_dict_from_file
 
@@ -39,10 +40,10 @@ class AbstractIconFinder:
         pass
 
 
-class ZGrepIconFinder(AbstractIconFinder):
+class ContentsListIconFinder(AbstractIconFinder):
     '''
-    An implementation of an IconFinder, using zgrep on a Contents-<arch>.gz file
-    present in Debian archive mirrors.
+    An implementation of an IconFinder, using a Contents-<arch>.gz file
+    present in Debian archive mirrors to find icons.
     '''
 
     def __init__(self, suite_name, archive_component, arch_name, archive_mirror_dir, pkgdict=None):
@@ -51,7 +52,17 @@ class ZGrepIconFinder(AbstractIconFinder):
 
         self._mirror_dir = archive_mirror_dir
         contents_fname = "Contents-%s.gz" % (arch_name)
-        self._contents_file = os.path.join(archive_mirror_dir, "dists", suite_name, archive_component, contents_fname)
+        contents_fname = os.path.join(archive_mirror_dir, "dists", suite_name, archive_component, contents_fname)
+
+        # load and preprocess insanely large file.
+        # we don't show mercy to memory here, we just want this to be fast.
+        self._contents_data = list()
+        f = gzip.open(contents_fname, 'r')
+        for line in f:
+            line = str(line, 'utf-8')
+            if line.startswith("usr/share/icons/hicolor/") or line.startswith("usr/share/pixmaps/"):
+                self._contents_data.append(line)
+        f.close()
 
         self._packages_dict = pkgdict
         if not self._packages_dict:
@@ -62,25 +73,21 @@ class ZGrepIconFinder(AbstractIconFinder):
         Find icon files in the archive which match a size.
         '''
 
-        if not os.path.isfile(self._contents_file):
+        if not self._contents_data:
             return None
 
-        search_param = None
+        valid = None
         if size:
-            search_param = '^usr/share/icons/hicolor/' + size + '/.*' + icon + '[\.png|\.svg|\.svgz]'
+            valid = re.compile('^usr/share/icons/hicolor/' + size + '/.*' + icon + '[\.png|\.svg|\.svgz]')
         else:
-            search_param = '^usr/share/pixmaps/' + icon + '.png'
+            valid = re.compile('^usr/share/pixmaps/' + icon + '.png')
 
-        res = None
-        try:
-            res = check_output(["zgrep", "-i", search_param, self._contents_file], universal_newlines=True)
-            res = str(res)
-        except Exception as e:
-            # we silently ignore errors. Not good, but at time we have no way to report them.
-            # TODO: Log this to the logfile
-            return None
+        res = list()
+        for line in self._contents_data:
+            if valid.match(line):
+                res.append(line)
 
-        for line in res.split('\n'):
+        for line in res:
             line = line.strip(' \t\n\r')
             if not " " in line:
                 continue

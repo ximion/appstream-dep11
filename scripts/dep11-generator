@@ -34,7 +34,7 @@ import multiprocessing as mp
 
 from dep11.extractor import MetadataExtractor
 from dep11.component import DEP11Component, DEP11YamlDumper, get_dep11_header
-from dep11.iconfinder import ZGrepIconFinder
+from dep11.iconfinder import ContentsListIconFinder
 from dep11.utils import read_packages_dict_from_file
 
 def debugln(msg):
@@ -251,7 +251,7 @@ class DEP11Generator:
             for arch in suite['architectures']:
                 pkglist = self._get_packages_for(suite_name, component, arch)
 
-                pool = ExtractorProcessPool(maxtasksperchild=8)
+                pool = ExtractorProcessPool(maxtasksperchild=16)
                 dpool = MetadataPool(self._db, self._db_hints)
 
                 def parse_results(message):
@@ -264,7 +264,7 @@ class DEP11Generator:
                     debugln(msg['message'])
                     dpool.append_cptdata(msg['pkgname'], msg['version'], msg['arch'], msg['cpts'])
 
-                iconf = ZGrepIconFinder(suite_name, component, arch, self._archive_root)
+                iconf = ContentsListIconFinder(suite_name, component, arch, self._archive_root)
                 mde = MetadataExtractor(suite_name, component,
                                 dep11_assetdir,
                                 self._dep11_url,
