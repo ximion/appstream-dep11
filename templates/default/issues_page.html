@@ -6,34 +6,38 @@
     <p>WORK IN PROGRESS!</p>
 
     {% if errors|length %}
-    <br/>
-    <h2>Errors:</h2>
-    <ul class="list-group">
-    {% for msg in errors %}
-      <li class="list-group-item list-group-item-danger">{{msg}}</li>
-    {% endfor %}
-    </ul>
+    <div class="infobox infobox-error">
+      <h2>Errors</h2>
+      <ul class="list-group">
+        {% for msg in errors %}
+          <li class="list-group-item list-group-item-info">{{msg}}</li>
+        {% endfor %}
+      </ul>
+    </div>
     {% endif %}
 
     {% if warnings|length %}
-    <br/>
-    <h2>Warnings:</h2>
-    <ul class="list-group">
-    {% for msg in warnings %}
-      <li class="list-group-item list-group-item-warning">{{msg}}</li>
-    {% endfor %}
-    </ul>
+    <div class="infobox infobox-error">
+      <h2>Warnings</h2>
+      <ul class="list-group">
+        {% for msg in warnings %}
+          <li class="list-group-item list-group-item-info">{{msg}}</li>
+        {% endfor %}
+      </ul>
+    </div>
     {% endif %}
 
     {% if infos|length %}
-    <br/>
-    <h2>Hints:</h2>
-    <ul class="list-group">
-    {% for msg in infos %}
-      <li class="list-group-item list-group-item-info">{{msg}}</li>
-    {% endfor %}
-    </ul>
+    <div class="infobox infobox-hint">
+      <h2>Hints</h2>
+      <ul class="list-group">
+        {% for msg in infos %}
+          <li class="list-group-item list-group-item-info">{{msg}}</li>
+        {% endfor %}
+      </ul>
+    </div>
     {% endif %}
+
 
 {% endblock %}
 

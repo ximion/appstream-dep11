@@ -403,6 +403,9 @@ class DEP11Generator:
                         errors = hint['Hints'].get('errors', list())
                         warnings = hint['Hints'].get('warnings', list())
                         infos = hint['Hints'].get('infos', list())
+                        for i in range(0, len(infos)):
+                            infos[i] = infos[i].replace("http://freedesktop.org/software/appstream/docs/chap-Quickstart.html",
+                                            "<a href=\"http://freedesktop.org/software/appstream/docs/chap-Quickstart.html\">the XML quickstart guide</a>")
 
                         self.render_template("issues_page.html", export_dir, "%s.html" % (pkg_name),
                                 package_name=pkg_name, errors=errors, warnings=warnings, infos=infos, suite=suite_name, time=time.strftime("%c"))

@@ -243,7 +243,7 @@ def read_appstream_upstream_xml(cpt, xml_content):
     if root.tag == 'application':
         # we parse ancient AppStream XML, but it is a good idea to update it to make use of newer features, remove some ancient
         # oddities and to simplify the parser in future. So we add a hint for that.
-        cpt.add_info_hint("The AppStream etadata should be updated to follow a more recent version of the spec." +
+        cpt.add_info_hint("The AppStream metadata should be updated to follow a more recent version of the specification." +
                         "Please consult http://freedesktop.org/software/appstream/docs/chap-Quickstart.html for more information.")
 
     key = root.attrib.get('type')

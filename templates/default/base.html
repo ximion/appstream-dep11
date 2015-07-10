@@ -11,18 +11,37 @@
 
     <title>Debian DEP-11 Report - {% block title %}{% endblock %}</title>
 
-    <!-- Fonts -->
-    <link href='http://fonts.googleapis.com/css?family=Cantarell' rel='stylesheet' type='text/css'>
+    <link href="static/css/style.css" rel="stylesheet" type="text/css" />
 
-    <link rel="shortcut icon" href="http://qa.tanglu.org/static/img/favicon.png">
+    <!-- Fonts -->
+    <link href="http://fonts.googleapis.com/css?family=Cantarell" rel="stylesheet" type="text/css" />
+
+    <link rel="shortcut icon" href="static/img/favicon.png">
 {% endblock %}
 </head>
 
 <body>
+<div class="headbar">
+  <div class="headbar-content avoidwrap">
+    <span>{{package_name}}</span> <span style="font-size:16px;">[{{suite}}/3.14.0-1]</span>&nbsp;
+    <span style="font-size:12px;">at 2015-06-16 17:40 UTC:</span>
+  </div>
+</div>
 
-<div class="container">
+<div class="content">
   {% block content %}{% endblock %}
-</div><!-- /.container -->
+</div>
+
+<hr />
+
+<footer>
+<p style="font-size:0.9em;">
+    Debian DEP-11 metadata generator.
+</p>
+<p style="font-size:0.8em;">
+    {% block page_details %}{% endblock %}
+</p>
+</footer>
 
 </body>
 </html>

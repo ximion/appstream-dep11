@@ -159,7 +159,7 @@ class MetadataExtractor:
                 f.write(image)
                 f.close()
             except Exception as e:
-                cpt.add_info_hint("Error while downloading screenshot from '%s' for component '%s': %s" % (origin_url, cpt.cid, str(e)))
+                cpt.add_warning_hint("Error while downloading screenshot from '%s' for component '%s': %s" % (origin_url, cpt.cid, str(e)))
                 success = False
                 continue
 
@@ -171,7 +171,7 @@ class MetadataExtractor:
                 shot['source-image']['url'] = os.path.join(base_url, "source", "screenshot-%s.png" % (str(cnt)))
                 img.close()
             except Exception as e:
-                cpt.add_info_hint("Error while reading screenshot data for 'screenshot-%s.png' of component '%s': %s" % (str(cnt), cpt.cid, str(e)))
+                cpt.add_warning_hint("Error while reading screenshot data for 'screenshot-%s.png' of component '%s': %s" % (str(cnt), cpt.cid, str(e)))
                 success = False
                 continue
 
@@ -474,7 +474,7 @@ class MetadataExtractor:
                         continue
                     if data['error']:
                         # add a non-fatal hint that we couldn't process the .desktop file
-                        cpt.add_info_hint(data['error'])
+                        cpt.add_warning_hint(data['error'])
                     else:
                         # we have a .desktop component, extend it with the associated .desktop data
                         read_desktop_data(cpt, data['data'])
