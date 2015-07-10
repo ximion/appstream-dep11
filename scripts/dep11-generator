@@ -375,7 +375,7 @@ class DEP11Generator:
 
         template = j2_env.get_template(name)
         content = template.render(*args, **kwargs)
-        print(out_path)
+        debugln(out_path)
         with open(out_path, 'w') as f:
             f.write(content)
 
@@ -384,10 +384,12 @@ class DEP11Generator:
         if not os.path.exists(dep11_hintsdir):
             return
 
+        # FIXME: Properly account for architecture, and remove old HTML files
         for suite_name in self._suites_data:
             suite = self._suites_data[suite_name]
             for component in suite['components']:
                 for arch in suite['architectures']:
+                    package_summaries = list()
                     export_dir = os.path.join(self._export_dir, "hints_html", suite_name, component)
                     h_fname = os.path.join(dep11_hintsdir, suite_name, component, "DEP11Hints_%s.yml.gz" % (arch))
                     if not os.path.isfile(h_fname):
@@ -407,9 +409,14 @@ class DEP11Generator:
                             infos[i] = infos[i].replace("http://freedesktop.org/software/appstream/docs/chap-Quickstart.html",
                                             "<a href=\"http://freedesktop.org/software/appstream/docs/chap-Quickstart.html\">the XML quickstart guide</a>")
 
+                        package_summaries.append({'pkgname': pkg_name, 'errors_count': len(errors), 'warnings_count': len(warnings), 'infos_count': len(infos)})
+
                         self.render_template("issues_page.html", export_dir, "%s.html" % (pkg_name),
                                 package_name=pkg_name, errors=errors, warnings=warnings, infos=infos, suite=suite_name, time=time.strftime("%c"))
 
+                    # Now render our index page
+                    self.render_template("issues_index.html", export_dir, "index.html",
+                                package_summaries=package_summaries, suite=suite_name, time=time.strftime("%c"))
 
 def main():
     parser = OptionParser()

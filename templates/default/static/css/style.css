@@ -15,6 +15,15 @@ body {
     height: 93%;
 }
 
+a {
+    color: #337ab7;
+    text-decoration: none;
+}
+
+a {
+    background-color: transparent;
+}
+
 .headbar {
     border-radius: 4px;
     display: block;
@@ -52,10 +61,6 @@ hr {
     margin-bottom: 1em;
 }
 
-span.red { color: #d70a53; }
-span.purple { color: purple; }
-span.green { color: green; }
-span.dangerous { color: orange; }
 span.avoidwrap { display: inline-block; }
 
 .infobox {
@@ -97,4 +102,35 @@ span.avoidwrap { display: inline-block; }
 
 .infobox-warning h2 {
     color: #aa6708;
+}
+
+/* label styles copied from Bootstrap */
+.label {
+    border-radius: 0.25em;
+    color: #fff;
+    display: inline;
+    font-size: 75%;
+    font-weight: 700;
+    line-height: 1;
+    padding: 0.2em 0.6em 0.3em;
+    text-align: center;
+    vertical-align: baseline;
+    white-space: nowrap;
+}
+
+.label-info {
+    background-color: #5bc0de;
+}
+
+.label-warning {
+    background-color: #f0ad4e;
+}
+
+.label-error {
+    background-color: #d9534f;
+}
+
+.overviewlisting a {
+    color: #000000;
+    text-decoration: none;
 }

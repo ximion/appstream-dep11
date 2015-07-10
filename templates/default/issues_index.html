@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Hints summary for {{suite}}{% endblock %}
+
+{% block header_content %}
+<span>Hints summary for {{suite}}</span>
+{% endblock %}
+
+{% block content %}
+    <h1>Metadata processing hints found for {{suite}}</h1>
+
+    <ul class="overviewlisting">
+      {% for summary in package_summaries %}
+        <li>
+          <span style="font-size:16px;">
+          <a href="{{summary.pkgname}}.html">{{summary.pkgname}}</a>&nbsp;
+          </span>
+        {% if summary.infos_count %}
+          <span class="label label-info">Infos: {{summary.infos_count}}</span>
+        {% endif %}
+        {% if summary.warnings_count %}
+          <span class="label label-warning">Warnings: {{summary.warnings_count}}</span>
+        {% endif %}
+        {% if summary.errors_count %}
+          <span class="label label-error">Errors: {{summary.errors_count}}</span>
+        {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+
+
+
+{% endblock %}
+
+{% block page_details %}
+<p><small>Last updated on: {{time}}</small></p>
+{% endblock %}

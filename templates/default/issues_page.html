@@ -1,6 +1,11 @@
 {% extends "base.html" %}
 {% block title %}{{package_name}} in {{suite}}{% endblock %}
 
+{% block header_content %}
+<span>{{package_name}}</span> <span style="font-size:16px;">[{{suite}}]</span>&nbsp;
+<span style="font-size:12px;">at {{time}}</span>
+{% endblock %}
+
 {% block content %}
     <h1>Issues with {{package_name}} in {{suite}}</h1>
     <p>WORK IN PROGRESS!</p>
@@ -37,7 +42,6 @@
       </ul>
     </div>
     {% endif %}
-
 
 {% endblock %}
 
