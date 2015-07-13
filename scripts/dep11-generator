@@ -181,6 +181,15 @@ class DEP11Generator:
             print("Could not open hints cache: %s" % (str(self._db_hints.error())), file=sys.stderr)
             return False
 
+        self._hints_html_url = conf.get("HintsHtmlUrl")
+        if not self._hints_html_url:
+            self._hints_html_url = "."
+
+        # FIXME: Find templates when the Python module is installed
+        template_dir = os.path.dirname(os.path.realpath(__file__))
+        template_dir = os.path.realpath(os.path.join(template_dir, "..", "templates", "default"))
+        self._template_dir = template_dir
+
         os.chdir(dep11_dir)
         return True
 
@@ -367,12 +376,11 @@ class DEP11Generator:
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
 
-        template_dir = os.path.dirname(os.path.realpath(__file__))
-        template_dir = os.path.realpath(os.path.join(template_dir, "..", "templates", "default"))
+        template_dir = self._template_dir
         j2_env = Environment(loader=FileSystemLoader(template_dir))
 
         template = j2_env.get_template(name)
-        content = template.render(*args, **kwargs)
+        content = template.render(root_url=self._hints_html_url, *args, **kwargs)
         debugln(out_path)
         with open(out_path, 'w') as f:
             f.write(content)
@@ -415,6 +423,12 @@ class DEP11Generator:
                     # Now render our index page
                     self.render_template("issues_index.html", export_dir, "index.html",
                                 package_summaries=package_summaries, suite=suite_name, time=time.strftime("%c"))
+
+        # Copy the static files
+        target_static_dir = os.path.join(self._export_dir, "hints_html", "static")
+        shutil.rmtree(target_static_dir, ignore_errors=True)
+        shutil.copytree(os.path.join(self._template_dir, "static"), target_static_dir)
+
 
 def main():
     parser = OptionParser()
