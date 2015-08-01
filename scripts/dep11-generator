@@ -145,11 +145,11 @@ class DEP11Generator:
             print("Config is missing information about suites!")
             return False
 
-        if not conf.get("DataUrl"):
+        if not conf.get("AssetsUrl"):
             print("You need to specify an URL where additional data (like screenshots) can be downloaded.")
             return False
 
-        self._dep11_url = conf.get("DataUrl")
+        self._dep11_url = conf.get("AssetsUrl")
         self._icon_sizes = conf.get("IconSizes")
         if not self._icon_sizes:
             self._icon_sizes = ["128x128", "64x64"]
