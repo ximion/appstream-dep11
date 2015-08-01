@@ -29,15 +29,12 @@ from kyotocabinet import *
 from optparse import OptionParser
 from dep11.multiprocessing import *
 import multiprocessing as mp
+import logging as log
 
 from dep11.extractor import MetadataExtractor
 from dep11.component import DEP11Component, DEP11YamlDumper, get_dep11_header
 from dep11.iconfinder import ContentsListIconFinder
 from dep11.utils import read_packages_dict_from_file
-
-def debugln(msg):
-    if os.environ.get("DEBUG"):
-        print(msg)
 
 def safe_move_file(old_fname, new_fname):
     if not os.path.isfile(old_fname):
@@ -46,8 +43,10 @@ def safe_move_file(old_fname, new_fname):
         os.remove(new_fname)
     os.rename(old_fname, new_fname)
 
+
 def get_pkg_id(name, version, arch):
     return "%s_%s_%s" % (name, version, arch)
+
 
 class MetadataPool:
     '''
@@ -62,6 +61,7 @@ class MetadataPool:
         self._db = db
         self._db_hints = hints_db
 
+
     def append_cptdata(self, pkgname, version, arch, cptlist):
         '''
         Makes a list of all the DEP11Component objects in a arch pool
@@ -74,6 +74,7 @@ class MetadataPool:
             cpts.append({'version': version, 'cpt': c, 'pkg': pkgname})
         if not cptlist:
             cpts.append({'version': version, 'cpt': None, 'pkg': pkgname})
+
 
     def save(self):
         """
@@ -107,6 +108,7 @@ class MetadataPool:
         self._db.end_transaction()
         self._db_hints.end_transaction()
 
+
 def extract_metadata(mde, sn, pkgname, package_fname, version, arch):
     cpts = mde.process(pkgname, package_fname)
 
@@ -119,9 +121,11 @@ def extract_metadata(mde, sn, pkgname, package_fname, version, arch):
 
     return (PROC_STATUS_SUCCESS, data)
 
+
 class DEP11Generator:
     def __init__(self):
         pass
+
 
     def initialize(self, dep11_dir):
         conf_fname = os.path.join(dep11_dir, "dep11-config.yml")
@@ -173,12 +177,12 @@ class DEP11Generator:
 
         self._db = DB()
         if not self._db.open(os.path.join(self._cache_dir, "data_cache.kch"), DB.OREADER | DB.OWRITER | DB.OCREATE):
-            print("Could not open cache: %s" % (str(self._db.error())), file=sys.stderr)
+            log.error("Could not open cache: %s" % (str(self._db.error())), file=sys.stderr)
             return False
 
         self._db_hints = DB()
         if not self._db_hints.open(os.path.join(self._cache_dir, "hints_cache.kch"), DB.OREADER | DB.OWRITER | DB.OCREATE):
-            print("Could not open hints cache: %s" % (str(self._db_hints.error())), file=sys.stderr)
+            log.error("Could not open hints cache: %s" % (str(self._db_hints.error())), file=sys.stderr)
             return False
 
         self._hints_html_url = conf.get("HintsHtmlUrl")
@@ -193,14 +197,17 @@ class DEP11Generator:
         os.chdir(dep11_dir)
         return True
 
+
     def _get_asset_dir(self):
         asset_dir = os.path.join(self._export_dir, "assets")
         if not os.path.exists(asset_dir):
             os.makedirs(asset_dir)
         return asset_dir
 
+
     def _get_packages_for(self, suite, component, arch):
         return read_packages_dict_from_file(self._archive_root, suite, component, arch).values()
+
 
     def make_icon_tar(self, suitename, component, pkglist):
         '''
@@ -236,6 +243,7 @@ class DEP11Generator:
             # FIXME Ugly....
             safe_move_file(tar.name, tar.name.replace(".new", ""))
 
+
     def process_suite(self, suite_name):
         '''
         Extract new metadata for a given suite.
@@ -243,7 +251,7 @@ class DEP11Generator:
 
         suite = self._suites_data.get(suite_name)
         if not suite:
-            print("Suite '%s' not found!" % (suite_name))
+            log.error("Suite '%s' not found!" % (suite_name))
             return False
 
         dep11_assetdir = self._get_asset_dir()
@@ -264,11 +272,11 @@ class DEP11Generator:
                 def parse_results(message):
                     (code, msg) = message
                     if code != PROC_STATUS_SUCCESS:
-                        print("######\nERROR:\n#\n%s" % (str(msg)))
+                        log.error(str(msg))
                         pool.terminate()
                         pool.join()
                         sys.exit(5)
-                    debugln(msg['message'])
+                    log.info(msg['message'])
                     dpool.append_cptdata(msg['pkgname'], msg['version'], msg['arch'], msg['cpts'])
 
                 iconf = ContentsListIconFinder(suite_name, component, arch, self._archive_root)
@@ -287,7 +295,7 @@ class DEP11Generator:
                         continue
 
                     if not os.path.exists(package_fname):
-                        print('Package not found: %s' % (package_fname))
+                        log.warning('Package not found: %s' % (package_fname))
                         continue
                     pool.apply_async(extract_metadata,
                                 (mde, suite_name, pkg['name'], package_fname, pkg['version'], pkg['arch']), callback=parse_results)
@@ -334,7 +342,8 @@ class DEP11Generator:
             # create icon tarball
             self.make_icon_tar(suite_name, component, all_cpt_pkgs)
 
-            print("Completed metadata extraction for suite %s/%s" % (suite_name, component))
+            log.info("Completed metadata extraction for suite %s/%s" % (suite_name, component))
+
 
     def expire_cache(self):
         dep11_assetdir = self._get_asset_dir()
@@ -366,6 +375,7 @@ class DEP11Generator:
             if dirs:
                 shutil.rmtree(dirs[0])
 
+
     def render_template(self, name, out_dir, out_name = None, *args, **kwargs):
         if not out_name:
             out_path = os.path.join(out_dir, name)
@@ -381,9 +391,10 @@ class DEP11Generator:
 
         template = j2_env.get_template(name)
         content = template.render(root_url=self._hints_html_url, *args, **kwargs)
-        debugln(out_path)
+        log.debug(out_path)
         with open(out_path, 'w') as f:
             f.write(content)
+
 
     def update_html(self):
         dep11_hintsdir = os.path.join(self._export_dir, "hints")
@@ -440,6 +451,12 @@ def main():
 
     command = args[0]
 
+    # configure logging
+    log_level = log.INFO
+    if os.environ.get("DEBUG"):
+        log_level = log.DEBUG
+    log.basicConfig(format='%(asctime)s - %(levelname)s: %(message)s', level=log_level)
+
     if command == "process":
         if len(args) != 3:
             print("You need to specify a DEP-11 data dir and a suite.")
@@ -475,6 +492,7 @@ def main():
         gen.update_html()
     else:
         print("Run with --help for a list of available command-line options!")
+
 
 if __name__ == "__main__":
     apt_pkg.init()
