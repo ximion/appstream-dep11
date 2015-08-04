@@ -24,7 +24,7 @@ In order to use AppStream-DEP11, the following components are needed:
 To install all dependencies on Debian systems, use
 ```ShellSession
 sudo apt install gir1.2-rsvg-2.0 python3-apt python3-cairo python3-gi python3-jinja2 \
-    python3-kyotocabinet python3-lxml python3-pil python3-voluptuous python3-yaml
+    python3-kyotocabinet python3-gi-cairo python3-lxml python3-pil python3-voluptuous python3-yaml
 ```
 
 ## How to use
