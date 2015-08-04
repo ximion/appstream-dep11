@@ -50,8 +50,15 @@ class ContentsListIconFinder(AbstractIconFinder):
         self._component = archive_component
 
         self._mirror_dir = archive_mirror_dir
-        contents_fname = "Contents-%s.gz" % (arch_name)
-        contents_fname = os.path.join(archive_mirror_dir, "dists", suite_name, archive_component, contents_fname)
+        contents_basename = "Contents-%s.gz" % (arch_name)
+        contents_fname = os.path.join(archive_mirror_dir, "dists", suite_name, archive_component, contents_basename)
+
+        # Ubuntu does not place the Contents file in a component-specific directory,
+        # so fall back to the global one.
+        if not os.path.isfile(contents_fname):
+            path = os.path.join(archive_mirror_dir, "dists", suite_name, contents_basename)
+            if os.path.isfile(path):
+                contents_fname = path
 
         # load and preprocess insanely large file.
         # we don't show mercy to memory here, we just want this to be fast.
