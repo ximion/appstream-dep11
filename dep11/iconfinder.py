@@ -39,6 +39,12 @@ class AbstractIconFinder:
         pass
 
 
+def _decode_contents_line(line):
+    try:
+        return str(line, 'utf-8')
+    except:
+        return str(line, 'iso-8859-1')
+
 class ContentsListIconFinder(AbstractIconFinder):
     '''
     An implementation of an IconFinder, using a Contents-<arch>.gz file
@@ -65,7 +71,7 @@ class ContentsListIconFinder(AbstractIconFinder):
         self._contents_data = list()
         f = gzip.open(contents_fname, 'r')
         for line in f:
-            line = str(line, 'utf-8')
+            line = _decode_contents_line(line)
             if line.startswith("usr/share/icons/hicolor/") or line.startswith("usr/share/pixmaps/"):
                 self._contents_data.append(line)
         f.close()
