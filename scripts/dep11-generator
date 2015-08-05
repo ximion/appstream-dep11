@@ -364,17 +364,19 @@ class DEP11Generator:
             if pkid in pkgids:
                 continue
             self._db.remove(pkid)
-            dirs = glob.glob(os.path.join(dep11_assetdir, "*", pkid))
+            dirs = glob.glob(os.path.join(dep11_assetdir, "*", str(pkid)))
             if dirs:
                 shutil.rmtree(dirs[0])
+                log.debug("Expired: %s" % (os.path.basename(dirs[0])))
 
         for pkid in self._db_hints:
             if pkid in pkgids:
                 continue
             self._db_hints.remove(pkid)
-            dirs = glob.glob(os.path.join(dep11_assetdir, "*", pkid))
+            dirs = glob.glob(os.path.join(dep11_assetdir, "*", str(pkid)))
             if dirs:
                 shutil.rmtree(dirs[0])
+                log.debug("Expired: %s" % (os.path.basename(dirs[0])))
 
 
     def render_template(self, name, out_dir, out_name = None, *args, **kwargs):
@@ -392,7 +394,7 @@ class DEP11Generator:
 
         template = j2_env.get_template(name)
         content = template.render(root_url=self._hints_html_url, *args, **kwargs)
-        log.debug(out_path)
+        log.debug("Render: %s" % (out_path))
         with open(out_path, 'wb') as f:
             f.write(bytes(content, 'utf-8'))
 
@@ -440,6 +442,34 @@ class DEP11Generator:
         target_static_dir = os.path.join(self._export_dir, "hints_html", "static")
         shutil.rmtree(target_static_dir, ignore_errors=True)
         shutil.copytree(os.path.join(self._template_dir, "static"), target_static_dir)
+
+
+    def remove_processed(self, suite_name):
+        '''
+        Delete information about processed packages, to later reprocess them.
+        '''
+
+        suite = self._suites_data.get(suite_name)
+        if not suite:
+            log.error("Suite '%s' not found!" % (suite_name))
+            return False
+
+        for component in suite['components']:
+            all_cpt_pkgs = list()
+            for arch in suite['architectures']:
+                pkglist = self._get_packages_for(suite_name, component, arch)
+
+                for pkg in pkglist:
+                    package_fname = os.path.join (self._archive_root, pkg['filename'])
+                    idname = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
+
+                    # we ignore packages without any interesting metadata here
+                    hint = self._db_hints.get_str(idname)
+                    if hint == "ignore":
+                        continue
+
+                    self._db_hints.remove(idname)
+                    self._db.remove(idname)
 
 
 def main():
@@ -491,6 +521,17 @@ def main():
             sys.exit(2)
 
         gen.update_html()
+    elif command == "remove-processed":
+        if len(args) != 3:
+            print("You need to specify a DEP-11 data dir and suite.")
+            sys.exit(1)
+        gen = DEP11Generator()
+        ret = gen.initialize(args[1])
+        if not ret:
+            print("Initialization failed, can not continue.")
+            sys.exit(2)
+
+        gen.remove_processed(args[2])
     else:
         print("Run with --help for a list of available command-line options!")
 
