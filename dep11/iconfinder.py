@@ -74,6 +74,10 @@ class ContentsListIconFinder(AbstractIconFinder):
             line = _decode_contents_line(line)
             if line.startswith("usr/share/icons/hicolor/") or line.startswith("usr/share/pixmaps/"):
                 self._contents_data.append(line)
+
+            # allow Oxygen icon theme, needed to support KDE apps
+            if line.startswith("usr/share/icons/oxygen"):
+                self._contents_data.append(line)
         f.close()
 
         self._packages_dict = pkgdict
@@ -90,7 +94,7 @@ class ContentsListIconFinder(AbstractIconFinder):
 
         valid = None
         if size:
-            valid = re.compile('^usr/share/icons/hicolor/' + size + '/.*' + icon + '[\.png|\.svg|\.svgz]')
+            valid = re.compile('^usr/share/icons/.*/' + size + '/.*' + icon + '[\.png|\.svg|\.svgz]')
         else:
             valid = re.compile('^usr/share/pixmaps/' + icon + '.png')
 

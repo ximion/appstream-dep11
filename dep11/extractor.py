@@ -34,7 +34,7 @@ from dep11.parsers import read_desktop_data, read_appstream_upstream_xml
 from dep11.iconfinder import AbstractIconFinder
 
 xdg_icon_sizes = [IconSize(64), IconSize(72), IconSize(96), IconSize(128),
-                    IconSize(256), IconSize(256), IconSize(512)]
+                    IconSize(256), IconSize(512)]
 
 class MetadataExtractor:
     '''
