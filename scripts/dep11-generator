@@ -244,6 +244,14 @@ class DEP11Generator:
             safe_move_file(tar.name, tar.name.replace(".new", ""))
 
 
+    def _expire_asset(self, pkid):
+        dep11_assetdir = self._get_asset_dir()
+        dirs = glob.glob(os.path.join(dep11_assetdir, "*", str(pkid)))
+        if dirs:
+            shutil.rmtree(dirs[0])
+            log.debug("Expired: %s" % (os.path.basename(dirs[0])))
+
+
     def process_suite(self, suite_name):
         '''
         Extract new metadata for a given suite.
@@ -347,8 +355,6 @@ class DEP11Generator:
 
 
     def expire_cache(self):
-        dep11_assetdir = self._get_asset_dir()
-
         pkgids = set()
         for suite_name in self._suites_data:
             suite = self._suites_data[suite_name]
@@ -364,19 +370,13 @@ class DEP11Generator:
             if pkid in pkgids:
                 continue
             self._db.remove(pkid)
-            dirs = glob.glob(os.path.join(dep11_assetdir, "*", str(pkid)))
-            if dirs:
-                shutil.rmtree(dirs[0])
-                log.debug("Expired: %s" % (os.path.basename(dirs[0])))
+            self._expire_asset(pkid)
 
         for pkid in self._db_hints:
             if pkid in pkgids:
                 continue
             self._db_hints.remove(pkid)
-            dirs = glob.glob(os.path.join(dep11_assetdir, "*", str(pkid)))
-            if dirs:
-                shutil.rmtree(dirs[0])
-                log.debug("Expired: %s" % (os.path.basename(dirs[0])))
+            self._expire_asset(pkid)
 
 
     def render_template(self, name, out_dir, out_name = None, *args, **kwargs):
@@ -470,6 +470,7 @@ class DEP11Generator:
 
                     self._db_hints.remove(idname)
                     self._db.remove(idname)
+                    self._expire_asset(idname)
 
 
 def main():
