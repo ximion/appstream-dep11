@@ -274,7 +274,8 @@ class DEP11Generator:
                     if code != PROC_STATUS_SUCCESS:
                         log.error(str(msg))
                         pool.terminate()
-                        pool.join()
+                        # FIXME: Joining doesn't work, we need a smarter way to terminate on error
+                        # pool.join()
                         sys.exit(5)
                     log.info(msg['message'])
                     dpool.append_cptdata(msg['pkgname'], msg['version'], msg['arch'], msg['cpts'])

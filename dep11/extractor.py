@@ -352,7 +352,7 @@ class MetadataExtractor:
                 return False
 
             # the IconFinder uses it's own, new session, since we run multiprocess here
-            all_icon_sizes = self._icon_sizes
+            all_icon_sizes = self._icon_sizes[:]
             all_icon_sizes.extend(self._large_icon_sizes)
             icon_dict = self._icon_finder.find_icons(cpt.pkgname, icon_str, all_icon_sizes, cpt.binid)
             success = False
@@ -360,6 +360,7 @@ class MetadataExtractor:
                 for size in self._icon_sizes:
                     if not size in icon_dict:
                         continue
+
                     success = self._store_icon(cpt,
                                         cpt_export_path,
                                         icon_dict[size]['icon_fname'],
