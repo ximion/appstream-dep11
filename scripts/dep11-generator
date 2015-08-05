@@ -392,8 +392,8 @@ class DEP11Generator:
         template = j2_env.get_template(name)
         content = template.render(root_url=self._hints_html_url, *args, **kwargs)
         log.debug(out_path)
-        with open(out_path, 'w') as f:
-            f.write(content)
+        with open(out_path, 'wb') as f:
+            f.write(bytes(content, 'utf-8'))
 
 
     def update_html(self):
