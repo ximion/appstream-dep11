@@ -418,7 +418,12 @@ class DEP11Generator:
         except Exception as e:
             desc = "Error while expanding hint description: %s" % (str(e))
 
-        return {'tag_name': tag_name, 'description': desc}
+        severity = tag.get('severity')
+        if not severity:
+            log.error("Tag %s has no severity!", tag_name)
+            severity = "info"
+
+        return {'tag_name': tag_name, 'description': desc, 'severity': severity}
 
 
     def update_html(self):
@@ -463,20 +468,22 @@ class DEP11Generator:
                             maintainer = "Unknown"
                         if not package_summaries.get(maintainer):
                             package_summaries[maintainer] = list()
-                        errors_raw = hint['Hints'].get('errors', list())
-                        warnings_raw = hint['Hints'].get('warnings', list())
-                        infos_raw = hint['Hints'].get('infos', list())
+                        hints_raw = hint.get('Hints', list())
 
                         # expand all hints to show long descriptions
                         errors = list()
-                        for ehint in errors_raw:
-                            errors.append(self._expand_hint(ehint))
                         warnings = list()
-                        for whint in warnings_raw:
-                            warnings.append(self._expand_hint(whint))
                         infos = list()
-                        for ihint in infos_raw:
-                            infos.append(self._expand_hint(ihint))
+
+                        for hint in hints_raw:
+                            ehint = self._expand_hint(hint)
+                            severity = ehint['severity']
+                            if severity == "info":
+                                infos.append(ehint)
+                            elif severity == "warning":
+                                warnings.append(ehint)
+                            else:
+                                errors.append(ehint)
 
                         # add info for global index
                         package_summaries[maintainer].append({'pkgname': pkg_name, 'errors_count': len(errors), 'warnings_count': len(warnings), 'infos_count': len(infos)})

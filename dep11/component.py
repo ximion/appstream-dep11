@@ -104,7 +104,7 @@ class DEP11Component:
         self._binid = binid
 
         # properties
-        self._hints = dict()
+        self._hints = list()
         self._ignore = False
 
         self._id = None
@@ -128,20 +128,10 @@ class DEP11Component:
 
     def add_hint(self, tag, params=dict()):
         severity = get_hint_severity(tag)
-        imp_str = "infos"
-        if severity == HintSeverity.WARNING:
-            imp_str = "warnings"
-        elif severity == HintSeverity.ERROR:
-            imp_str = "errors"
+        if severity == HintSeverity.ERROR:
             self._ignore = True
 
-        if not self._hints.get(imp_str):
-            self._hints[imp_str] = list()
-
-        if not type(params) is dict:
-            params = {'msg': params}
-
-        self._hints[imp_str].append({'tag': tag, 'params': params})
+        self._hints.append({'tag': tag, 'params': params})
 
 
     def has_ignore_reason(self):
