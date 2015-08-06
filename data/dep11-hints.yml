@@ -45,7 +45,8 @@ icon-not-found:
   severity: error
 
 icon-open-failed:
-  text: Unable to open icon file '%(icon_fname)s'. Error: %(error)s<br/>
+  text: >
+        Unable to open icon file '%(icon_fname)s'. Error: %(error)s<br/>
         This means the generator could not render the icon to its appropriate size, and the icon has therefore been ignored.
   severity: error
 
