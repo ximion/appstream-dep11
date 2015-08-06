@@ -25,7 +25,7 @@ ancient-metadata:
   severity: info
 
 svgz-decompress-error:
-  text: "Unable to decompress SVGZ icon '%(icon_name)s'. Error: %(error)s"
+  text: "Unable to decompress SVGZ icon '%(icon_fname)s'. Error: %(error)s"
   severity: error
 
 icon-format-unsupported:
@@ -42,7 +42,12 @@ icon-not-found:
         </ul>
         To make the icon easier to find, place it in <code>/usr/share/icons/hicolor/<size>/apps</code> and ensure the <code>Icon=</code> value
         of the .desktop file is set correctly.
-  severity: serious
+  severity: error
+
+icon-open-failed:
+  text: Unable to open icon file '%(icon_fname)s'. Error: %(error)s<br/>
+        This means the generator could not render the icon to its appropriate size, and the icon has therefore been ignored.
+  severity: error
 
 deb-filelist-error:
   text: Could not determine file list for '%(pkg_fname)s'. This could be an error in the archive, dpkg, apt_pkg or the DEP-11 generator.<br/>

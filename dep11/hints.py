@@ -93,3 +93,13 @@ def get_hint_severity(tag_name):
     if severity == "info":
         return HintSeverity.INFO
     return HintSeverity.ERROR
+
+
+def hint_tag_is_error(tag_name):
+    tag = get_hint_tag_info(tag_name)
+    severity = tag.get('severity')
+    if not severity:
+        log.error("Tag %s has no severity!", tag_name)
+    if severity == "error":
+        return True
+    return False

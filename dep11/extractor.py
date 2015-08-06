@@ -258,7 +258,7 @@ class MetadataExtractor:
             try:
                 icon_data = zlib.decompress(bytes(icon_data), 15+32)
             except Exception as e:
-                cpt.add_hint("svgz-decompress-error", {'icon_name': icon_name, 'error': str(e)})
+                cpt.add_hint("svgz-decompress-error", {'icon_fname': icon_name, 'error': str(e)})
                 return False
 
         if icon_data:
@@ -278,7 +278,7 @@ class MetadataExtractor:
                 try:
                     img = Image.open(stream)
                 except Exception as e:
-                    cpt.add_hint("Unable to open icon file '%s'. Error: %s" % (icon_name, str(e)))
+                    cpt.add_hint("icon-open-failed", {'icon_fname': icon_name, 'error': str(e)})
                     return False
                 newimg = img.resize((int(size), int(size)), Image.ANTIALIAS)
                 newimg.save(icon_store_location)
@@ -297,6 +297,7 @@ class MetadataExtractor:
         if not filtered:
             return False
         if not size in self._icon_sizes:
+            # scale icons to allowed sizes
             for asize in self._icon_sizes:
                 success = self._store_icon(cpt, cpt_export_path, filtered[0], pkg_fname, asize) or success
         else:

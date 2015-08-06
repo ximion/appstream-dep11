@@ -256,10 +256,10 @@ class DEP11Generator:
 
                 for filename in glob.glob(icon_location_glob):
                     icon_name = os.path.basename(filename)
-                    if icon_name in names_seen:
+                    if size+"/"+icon_name in names_seen:
                         continue
                     tar.add(filename, arcname=icon_name)
-                    names_seen.add(icon_name)
+                    names_seen.add(size+"/"+icon_name)
 
         for tar in size_tars.values():
             tar.close()

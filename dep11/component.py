@@ -23,7 +23,7 @@ Contains the definition of a DEP-11 component.
 import yaml
 import datetime
 from dep11.utils import str_enc_dec
-from dep11.hints import HintSeverity, get_hint_severity
+from dep11.hints import HintSeverity, hint_tag_is_error
 import logging as log
 
 ###########################################################################
@@ -127,8 +127,7 @@ class DEP11Component:
 
 
     def add_hint(self, tag, params=dict()):
-        severity = get_hint_severity(tag)
-        if severity == HintSeverity.ERROR:
+        if hint_tag_is_error(tag):
             self._ignore = True
 
         self._hints.append({'tag': tag, 'params': params})
