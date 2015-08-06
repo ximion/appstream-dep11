@@ -88,11 +88,11 @@ class MetadataPool:
             for item in items:
                 cpt = item.get('cpt')
                 version = item['version']
-                idname = get_pkg_id(item['pkg'], version, arch)
+                pkid = get_pkg_id(item['pkg'], version, arch)
 
                 # if the package has no components, mark it as always-ignored
                 if not cpt:
-                    self._db_hints.set(idname, "ignore")
+                    self._db_hints.set(pkid, "ignore")
                     continue
 
                 # get the metadata in YAML format
@@ -102,8 +102,8 @@ class MetadataPool:
                     hints_yml = ""
 
                 if not cpt.has_ignore_reason():
-                    self._db.set(idname, metadata)
-                self._db_hints.set(idname, hints_yml)
+                    self._db.set(pkid, metadata)
+                self._db_hints.set(pkid, hints_yml)
 
         self._db.end_transaction()
         self._db_hints.end_transaction()
@@ -220,10 +220,10 @@ class DEP11Generator:
         size_tars = dict()
 
         for pkg in pkglist:
-            idname = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
+            pkid = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
 
             for size in self._icon_sizes:
-                icon_location_glob = os.path.join (dep11_assetdir, component, idname, "icons", size, "*.*")
+                icon_location_glob = os.path.join (dep11_assetdir, component, pkid, "icons", size, "*.*")
 
                 tar = None
                 if size not in size_tars:
@@ -297,10 +297,10 @@ class DEP11Generator:
 
                 for pkg in pkglist:
                     package_fname = os.path.join (self._archive_root, pkg['filename'])
-                    idname = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
+                    pkid = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
 
                     # check if we scanned the package already
-                    if self._db.get_str(idname) or self._db_hints.get_str(idname):
+                    if self._db.get_str(pkid) or self._db_hints.get_str(pkid):
                         continue
 
                     if not os.path.exists(package_fname):
@@ -332,11 +332,11 @@ class DEP11Generator:
                 data_f.write(bytes(dep11_header, 'utf-8'))
 
                 for pkg in pkglist:
-                    idname = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
-                    data = self._db.get_str(idname)
+                    pkid = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
+                    data = self._db.get_str(pkid)
                     if data:
                         data_f.write(bytes(data, 'utf-8'))
-                    hint = self._db_hints.get_str(idname)
+                    hint = self._db_hints.get_str(pkid)
                     if hint and hint != "ignore":
                         hints_f.write(bytes(hint, 'utf-8'))
 
@@ -362,18 +362,18 @@ class DEP11Generator:
                 for arch in suite['architectures']:
                     pkglist = self._get_packages_for(suite_name, component, arch)
                     for pkg in pkglist:
-                        idname = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
-                        pkgids.add(idname)
+                        pkid = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
+                        pkgids.add(str(pkid))
 
         # clean caches and database
         for pkid in self._db:
-            if pkid in pkgids:
+            if str(pkid) in pkgids:
                 continue
             self._db.remove(pkid)
             self._expire_asset(pkid)
 
         for pkid in self._db_hints:
-            if pkid in pkgids:
+            if str(pkid) in pkgids:
                 continue
             self._db_hints.remove(pkid)
             self._expire_asset(pkid)
@@ -461,16 +461,16 @@ class DEP11Generator:
 
                 for pkg in pkglist:
                     package_fname = os.path.join (self._archive_root, pkg['filename'])
-                    idname = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
+                    pkid = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
 
                     # we ignore packages without any interesting metadata here
-                    hint = self._db_hints.get_str(idname)
+                    hint = self._db_hints.get_str(pkid)
                     if str(hint) == "ignore":
                         continue
 
-                    self._db_hints.remove(idname)
-                    self._db.remove(idname)
-                    self._expire_asset(idname)
+                    self._db_hints.remove(pkid)
+                    self._db.remove(pkid)
+                    self._expire_asset(pkid)
 
 
 def main():
