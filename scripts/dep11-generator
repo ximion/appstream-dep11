@@ -129,6 +129,8 @@ class DEP11Generator:
 
 
     def initialize(self, dep11_dir):
+        dep11_dir = os.path.abspath(dep11_dir)
+
         conf_fname = os.path.join(dep11_dir, "dep11-config.yml")
         if not os.path.isfile(conf_fname):
             print("Could not find configuration! Make sure 'dep11-config.yml' exists!")
