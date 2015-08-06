@@ -44,6 +44,7 @@ def read_packages_dict_from_file(archive_root, suite, component, arch):
             print("Package %s-%s has no filename specified." % (pkg['name'], pkg['version']))
             continue
         pkg['filename'] = section['Filename']
+        pkg['maintainer'] = section['Maintainer']
 
         pkg2 = package_dict.get(pkg['name'])
         if pkg2:

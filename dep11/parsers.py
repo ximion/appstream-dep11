@@ -43,12 +43,12 @@ def read_desktop_data(cpt, dcontent):
         items = df.items("Desktop Entry")
         if df.get("Desktop Entry", "Type") != "Application":
             # ignore this file, isn't an application
-            cpt.add_error_hint("Not an application.")
+            cpt.add_hint("not-an-application")
             return False
         try:
             if df.get("Desktop Entry", "NoDisplay") == "True":
                 # we ignore this .desktop file, shouldn't be displayed
-                cpt.add_error_hint("Invisible")
+                cpt.add_hint("invisible-application")
                 return False
         except:
             # we don't care if the NoDisplay variable doesn't exist
@@ -56,7 +56,7 @@ def read_desktop_data(cpt, dcontent):
             pass
     except Exception as e:
         # this .desktop file is not interesting
-        cpt.add_error_hint("Error while reading .desktop data: %s" % str(e))
+        cpt.add_hint("desktop-file-read-error", str(e))
         return True
 
     # if we reached this step, we are dealing with a GUI desktop app
@@ -234,16 +234,15 @@ def read_appstream_upstream_xml(cpt, xml_content):
     try:
         root = et.fromstring(bytes(xml_content, 'utf-8'))
     except Exception as e:
-        cpt.add_error_hint("Unable to parse AppStream upstream XML: %s" % (str(e)))
+        cpt.add_hint("metainfo-parse-error", str(e))
         return
     if root is None:
-        cpt.add_error_hint("Unable to parse AppStream upstream XML: An unknown error appeared.")
+        cpt.add_hint("metainfo-parse-error", "Error is unknown, the root node was null.")
 
     if root.tag == 'application':
         # we parse ancient AppStream XML, but it is a good idea to update it to make use of newer features, remove some ancient
         # oddities and to simplify the parser in future. So we add a hint for that.
-        cpt.add_info_hint("The AppStream metadata should be updated to follow a more recent version of the specification." +
-                        "Please consult http://freedesktop.org/software/appstream/docs/chap-Quickstart.html for more information.")
+        cpt.add_hint("ancient-metadata")
 
     key = root.attrib.get('type')
     if key:

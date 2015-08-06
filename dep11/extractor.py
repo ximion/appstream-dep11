@@ -28,6 +28,7 @@ import cairo
 from gi.repository import Rsvg
 from tempfile import NamedTemporaryFile
 from PIL import Image
+import logging as log
 
 from dep11.component import DEP11Component, IconSize
 from dep11.parsers import read_desktop_data, read_appstream_upstream_xml
@@ -151,14 +152,20 @@ class MetadataExtractor:
                 # FIXME: The context parameter is only supported since Python 3.4.3, which is not
                 # yet widely available, so we can't use it here...
                 #! image = urllib.request.urlopen(origin_url, context=ssl_context).read()
-                image = urllib.request.urlopen(origin_url).read()
+                image_req = urllib.request.urlopen(origin_url)
+                if image_req.getcode() != 200:
+                    msg = "HTTP status code was %i." % (image_req.getcode())
+                    cpt.add_hint("screenshot-download-error", {'url': origin_url, 'cpt_id': cpt.cid, 'error': msg})
+                    success = False
+                    continue
+
                 if not os.path.exists(os.path.dirname(imgsrc)):
                     os.makedirs(os.path.dirname(imgsrc))
                 f = open(imgsrc, 'wb')
-                f.write(image)
+                f.write(image_req.read())
                 f.close()
             except Exception as e:
-                cpt.add_warning_hint("Error while downloading screenshot from '%s' for component '%s': %s" % (origin_url, cpt.cid, str(e)))
+                cpt.add_hint("screenshot-download-error", {'url': origin_url, 'cpt_id': cpt.cid, 'error': str(e)})
                 success = False
                 continue
 
@@ -170,7 +177,8 @@ class MetadataExtractor:
                 shot['source-image']['url'] = os.path.join(base_url, "source", "screenshot-%s.png" % (str(cnt)))
                 img.close()
             except Exception as e:
-                cpt.add_warning_hint("Error while reading screenshot data for 'screenshot-%s.png' of component '%s': %s" % (str(cnt), cpt.cid, str(e)))
+                sname = "screenshot-%is.png" % (cnt)
+                cpt.add_hint("screenshot-read-error", {'screenshot_name': sname, 'cpt_id': cpt.cid, 'error': str(e)})
                 success = False
                 continue
 
@@ -213,7 +221,7 @@ class MetadataExtractor:
         '''
         svgicon = False
         if not self._icon_allowed(icon_path):
-            cpt.add_error_hint("Icon file '%s' uses an unsupported image file format." % (os.path.basename(icon_path)))
+            cpt.add_hint("icon-format-unsupported", {'icon_fname': os.path.basename(icon_path)})
             return False
 
         if not os.path.exists(deb_fname):
@@ -238,7 +246,7 @@ class MetadataExtractor:
         try:
             icon_data = DebFile(deb_fname).data.extractdata(icon_path)
         except Exception as e:
-            print("Error while extracting icon '%s': %s" % (deb_fname, e))
+            cpt.add_hint("deb-extract-error", {'fname': icon_name, 'pkg_fname': deb_fname, 'error': str(e)})
             return False
 
         cpt.icon = icon_name
@@ -250,7 +258,7 @@ class MetadataExtractor:
             try:
                 icon_data = zlib.decompress(bytes(icon_data), 15+32)
             except Exception as e:
-                cpt.add_error_hint("Unable to decompress SVGZ icon '%s'. Error: %s" % (icon_name, str(e)))
+                cpt.add_hint("svgz-decompress-error", {'icon_name': icon_name, 'error': str(e)})
                 return False
 
         if icon_data:
@@ -270,7 +278,7 @@ class MetadataExtractor:
                 try:
                     img = Image.open(stream)
                 except Exception as e:
-                    cpt.add_error_hint("Unable to open icon file '%s'. Error: %s" % (icon_name, str(e)))
+                    cpt.add_hint("Unable to open icon file '%s'. Error: %s" % (icon_name, str(e)))
                     return False
                 newimg = img.resize((int(size), int(size)), Image.ANTIALIAS)
                 newimg.save(icon_store_location)
@@ -348,7 +356,7 @@ class MetadataExtractor:
             if last_pixmap:
                 # we don't do a global icon search anymore, since we've found an (unsuitable) icon
                 # already
-                cpt.add_error_hint("Icon file '%s' uses an unsupported image file format." % (os.path.basename(last_pixmap)))
+                cpt.add_hint("icon-format-unsupported", {'icon_fname': os.path.basename(last_pixmap)})
                 return False
 
             # the IconFinder uses it's own, new session, since we run multiprocess here
@@ -379,9 +387,9 @@ class MetadataExtractor:
                 return success
 
             if ("." in icon_str) and (not self._icon_allowed(icon_str)):
-                cpt.add_error_hint("Icon file '%s' uses an unsupported image file format." % (icon_str))
+                cpt.add_hint("icon-format-unsupported", {'icon_fname': icon_str})
             else:
-                cpt.add_error_hint("Icon '%s' was not found in the archive or is not available in a suitable size (at least 64x64)." % (icon_str))
+                cpt.add_hint("icon-not-found", {'icon_fname': icon_str})
             return False
 
         return True
@@ -395,19 +403,19 @@ class MetadataExtractor:
         try:
             deb = DebFile(pkg_fname)
         except Exception as e:
-            print ("Error reading deb file '%s': %s" % (pkg_fname, e))
+            log.error("Error reading deb file '%s': %s" % (pkg_fname, e))
         if not deb:
             return list()
 
         try:
             filelist = self._get_deb_filelist(deb)
         except:
-            print ("ERROR: List of files for '%s' could not be read" % (pkg_fname))
+            log.error("List of files for '%s' could not be read" % (pkg_fname))
             filelist = None
 
         if not filelist:
             cpt = DEP11Component(self._suite_name, self._archive_component, binid, pkgname)
-            cpt.add_error_hint("Could not determine file list for '%s'" % (os.path.basename(pkg_fname)))
+            cpt.add_hint("deb-filelist-error", {'pkg_fname': os.path.basename(pkg_fname)})
             return [cpt]
 
         if binid > 0:
@@ -439,9 +447,11 @@ class MetadataExtractor:
                 try:
                     dcontent = str(deb.data.extractdata(meta_file).decode("utf-8"))
                 except Exception as e:
-                    error = "Could not extract file '%s' from package '%s'. Error: %s" % (cpt_id, os.path.basename(pkg_fname), str(e))
+                    error = {'tag': "deb-extract-error",
+                                'params': {'fname': cpt_id, 'pkg_fname': os.path.basename(pkg_fname), 'error': str(e)}}
                 if not dcontent and not error:
-                    error = "File '%s' from package '%s' appeared to be empty." % (cpt_id, os.path.basename(pkg_fname))
+                    error = {'tag': "deb-empty-file",
+                                'params': {'fname': cpt_id, 'pkg_fname': os.path.basename(pkg_fname)}}
                 mdata_raw[cpt_id] = {'error': error, 'data': dcontent}
 
         # process all AppStream XML files
@@ -454,7 +464,7 @@ class MetadataExtractor:
                     xml_content = str(deb.data.extractdata(meta_file).decode("utf-8"))
                 except Exception as e:
                     # inability to read an AppStream XML file is a valid reason to skip the whole package
-                    cpt.add_error_hint("Could not extract file '%s' from package '%s'. Error: %s" % (meta_file, pkg_fname, str(e)))
+                    cpt.add_hint("deb-extract-error", {'fname': meta_file, 'pkg_fname': os.path.basename(pkg_fname), 'error': str(e)})
                     return [cpt]
                 if not xml_content:
                     continue
@@ -463,18 +473,18 @@ class MetadataExtractor:
                 # Reads the desktop files associated with the xml file
                 if not cpt.cid:
                     # if there is no ID at all, we dump this component, since we cannot do anything with it at all
-                    cpt.add_error_hint("Could not determine an id for this component.")
+                    cpt.add_hint("metainfo-no-id")
                     continue
 
                 component_dict[cpt.cid] = cpt
                 if cpt.kind == "desktop-app":
                     data = mdata_raw.get(cpt.cid)
                     if not data:
-                        cpt.add_error_hint("Found an AppStream upstream XML file, but the associated .desktop file is missing.")
+                        cpt.add_hint("missing-desktop-file")
                         continue
                     if data['error']:
                         # add a non-fatal hint that we couldn't process the .desktop file
-                        cpt.add_warning_hint(data['error'])
+                        cpt.add_hint(data['error']['tag'], data['error']['params'])
                     else:
                         # we have a .desktop component, extend it with the associated .desktop data
                         read_desktop_data(cpt, data['data'])
@@ -489,7 +499,7 @@ class MetadataExtractor:
 
                 if mdata['error']:
                     # add a fatal hint that we couldn't process this file
-                    cpt.add_error_hint(mdata['error'])
+                    cpt.add_hint(mdata['error']['tag'], mdata['error']['params'])
                     component_dict[cpt.cid] = cpt
                 else:
                     ret = read_desktop_data(cpt, mdata['data'])
@@ -503,7 +513,7 @@ class MetadataExtractor:
         for cpt in component_dict.values():
             self._fetch_icon(cpt, export_path, pkg_fname, filelist)
             if cpt.kind == 'desktop-app' and not cpt.icon:
-                cpt.add_error_hint("GUI application, but no valid icon found.")
+                cpt.add_hint("gui-app-without-icon")
             else:
                 self._fetch_screenshots(cpt, export_path, public_url)
 

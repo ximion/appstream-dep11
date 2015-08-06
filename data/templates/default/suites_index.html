@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}DEP-11 data for {{distro}}: Suites overview{% endblock %}
+
+{% block header_content %}
+<span>DEP-11 data hints for {{distro}}</span>
+{% endblock %}
+
+{% block content %}
+    <h1>Select a suite</h1>
+
+    {% for suite in suites %}
+      <h3><a href="{{suite}}/index.html">{{suite}}</a></h3>
+    {% endfor %}
+
+    <h1>More information about AppStream &amp; DEP-11</h1>
+    <p>::TODO</p>
+    <p>See <a href="https://wiki.debian.org/AppStream">AppStream @ wiki.d.o</a> and <a href="https://wiki.debian.org/DEP-11">DEP-11 @ wiki.d.o</a> for now.</p>
+
+{% endblock %}

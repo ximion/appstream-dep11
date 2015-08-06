@@ -15,7 +15,17 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this program.
 
-from setuptools import setup
+import os
+import sys
+from setuptools import setup, find_packages
+
+data_target = os.path.join(sys.prefix, "share", "dep11")
+data_files = list()
+
+for root, dirs, files in os.walk("data/"):
+    for fname in files:
+        tdir = root.replace("data/", "")
+        data_files.append( (os.path.join(data_target, tdir), [os.path.join(root, fname)]) )
 
 setup(name = 'dep11',
       version = '0.1',
@@ -26,5 +36,6 @@ setup(name = 'dep11',
       license = 'LGPL-3+',
       packages = ['dep11'],
       scripts = ['scripts/dep11-generator', 'scripts/dep11-validate'],
+      data_files=data_files,
       zip_safe = False,
-     )
+)

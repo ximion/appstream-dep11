@@ -23,6 +23,8 @@ Contains the definition of a DEP-11 component.
 import yaml
 import datetime
 from dep11.utils import str_enc_dec
+from dep11.hints import HintSeverity, get_hint_severity
+import logging as log
 
 ###########################################################################
 DEP11_VERSION = "0.6"
@@ -69,7 +71,7 @@ class IconSize:
     def set_from_string(self, s):
         wd, ht = s.split('x')
         if int(wd) != int(ht):
-            print("Warning: Processing asymetric icon.")
+            log.warning("Processing asymetric icon.")
         self.size = int(wd)
 
 class ProvidedItemType:
@@ -86,13 +88,6 @@ class ProvidedItemType:
     FIRMWARE = 'firmware'
     CODEC = 'codecs'
 
-class HintImportance:
-    '''
-    Importance of a component parsing hint.
-    '''
-    ERROR = 'errors'
-    WARNING = 'warnings'
-    INFO = 'infos'
 
 class DEP11Component:
     '''
@@ -130,23 +125,28 @@ class DEP11Component:
         self._extends = list()
         self._compulsory_for_desktops = list()
 
-    def add_hint(self, msg, importance):
-        if not self._hints.get(importance):
-            self._hints[importance] = list()
-        self._hints[importance].append(msg)
 
-    def add_error_hint(self, msg):
-        self.add_hint(msg, HintImportance.ERROR)
-        self._ignore = True
+    def add_hint(self, tag, params=dict()):
+        severity = get_hint_severity(tag)
+        imp_str = "infos"
+        if severity == HintSeverity.WARNING:
+            imp_str = "warnings"
+        elif severity == HintSeverity.ERROR:
+            imp_str = "errors"
+            self._ignore = True
 
-    def add_warning_hint(self, msg):
-        self.add_hint(msg, HintImportance.WARNING)
+        if not self._hints.get(imp_str):
+            self._hints[imp_str] = list()
 
-    def add_info_hint(self, msg):
-        self.add_hint(msg, HintImportance.INFO)
+        if not type(params) is dict:
+            params = {'msg': params}
+
+        self._hints[imp_str].append({'tag': tag, 'params': params})
+
 
     def has_ignore_reason(self):
         return self._ignore
+
 
     def get_hints_dict(self):
         if not self._hints:
@@ -165,6 +165,7 @@ class DEP11Component:
 
         return hdict
 
+
     def get_hints_yaml(self):
         if not self._hints:
             return None
@@ -172,6 +173,7 @@ class DEP11Component:
                     default_flow_style=False, explicit_start=True,
                     explicit_end=False, width=100, indent=2,
                     allow_unicode=True)
+
 
     @property
     def cid(self):
@@ -317,6 +319,7 @@ class DEP11Component:
     def extends(self, val):
         self._extends = val
 
+
     def add_provided_item(self, kind, value):
         if kind not in self.provides.keys():
             self.provides[kind] = list()
@@ -325,6 +328,7 @@ class DEP11Component:
 
     def _is_quoted(self, s):
         return (s.startswith("\"") and s.endswith("\"")) or (s.startswith("\'") and s.endswith("\'"))
+
 
     def _cleanup(self, d):
         '''
@@ -358,6 +362,7 @@ class DEP11Component:
 
         return d
 
+
     def finalize_to_dict(self):
         '''
         Do sanity checks and finalization work, then serialize the component to
@@ -378,15 +383,15 @@ class DEP11Component:
         # validate the basics (if we don't ignore this already)
         if not self.has_ignore_reason():
             if not self.cid:
-                self.add_error_hint("Component has no valid ID.")
+                self.add_hint("metainfo-no-id")
             if not self.kind:
-                self.add_error_hint("Component has no type defined.")
+                self.add_hint("metainfo-no-type")
             if not self.name:
-                self.add_error_hint("Component has no name specified.")
+                self.add_hint("metainfo-no-name")
             if not self._pkg:
-                self.add_error_hint("Component has no package defined.")
+                self.add_hint("metainfo-no-package")
             if not self.summary:
-                self.add_error_hint("Component does not contain a short summary.")
+                self.add_hint("metainfo-no-summary")
 
         d = dict()
         d['Packages'] = [self._pkg]
@@ -432,6 +437,7 @@ class DEP11Component:
         if self.compulsory_for_desktops:
             d['CompulsoryForDesktops'] = self.compulsory_for_desktops
         return d
+
 
     def to_yaml_doc(self):
         return yaml.dump(self.finalize_to_dict(), Dumper=DEP11YamlDumper,

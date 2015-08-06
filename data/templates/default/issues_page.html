@@ -10,15 +10,19 @@
 {% endblock %}
 
 {% block content %}
-    <h1>Issues with {{package_name}} in {{suite}}</h1>
-    <p>WORK IN PROGRESS!</p>
+    <h1>Hints for {{package_name}} in {{suite}}</h1>
+
+    <div class="wrapper">
 
     {% if errors|length %}
     <div class="infobox infobox-error">
       <h2>Errors</h2>
       <ul class="list-group">
-        {% for msg in errors %}
-          <li class="list-group-item list-group-item-info">{{msg}}</li>
+        {% for tag in errors %}
+          <li class="list-group-item list-group-item-info">
+          <strong>{{tag.tag_name}}</strong><br/>
+          {{tag.description}}
+          </li>
         {% endfor %}
       </ul>
     </div>
@@ -28,8 +32,11 @@
     <div class="infobox infobox-warning">
       <h2>Warnings</h2>
       <ul class="list-group">
-        {% for msg in warnings %}
-          <li class="list-group-item list-group-item-info">{{msg}}</li>
+        {% for tag in warnings %}
+          <li class="list-group-item list-group-item-info">
+          <strong>{{tag.tag_name}}</strong><br/>
+          {{tag.description}}
+          </li>
         {% endfor %}
       </ul>
     </div>
@@ -39,15 +46,20 @@
     <div class="infobox infobox-hint">
       <h2>Hints</h2>
       <ul class="list-group">
-        {% for msg in infos %}
-          <li class="list-group-item list-group-item-info">{{msg}}</li>
+        {% for tag in infos %}
+          <li class="list-group-item list-group-item-info">
+          <strong>{{tag.tag_name}}</strong><br/>
+          {{tag.description}}
+          </li>
         {% endfor %}
       </ul>
     </div>
     {% endif %}
 
+    </div>
+
 {% endblock %}
 
-{% block page_details %}
-<p><small>Last updated on: {{time}}</small></p>
+{% block float_right %}
+<small>Last updated on: {{time}}</small>
 {% endblock %}
