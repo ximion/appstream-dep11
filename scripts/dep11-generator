@@ -240,6 +240,11 @@ class DEP11Generator:
         for pkg in pkglist:
             pkid = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
 
+            hint = self._db.get_str(pkid)
+            if not hint:
+                # we do not add icons where the associated component is ignored
+                continue
+
             for size in self._icon_sizes:
                 icon_location_glob = os.path.join (dep11_assetdir, component, pkid, "icons", size, "*.*")
 

@@ -142,11 +142,17 @@ class ContentsListIconFinder(AbstractIconFinder):
             if flist:
                 size_map_flist[IconSize(64)] = flist
             else:
-                # some software doesn't store icons in sized XDG directories.
-                # catch these here, and assume that the size is 64x64
-                flist = self._query_icon(None, icon)
-                if flist:
-                    size_map_flist[IconSize(64)] = flist
+                if IconSize(128) in size_map_flist:
+                    # Lots of software doesn't have a 64x64 icon, but a 128x128 icon.
+                    # We just implement this small hack to resize the icon to the
+                    # appropriate size.
+                    size_map_flist[IconSize(64)] = size_map_flist[IconSize(128)]
+                else:
+                    # some software doesn't store icons in sized XDG directories.
+                    # catch these here, and assume that the size is 64x64
+                    flist = self._query_icon(None, icon)
+                    if flist:
+                        size_map_flist[IconSize(64)] = flist
 
         return size_map_flist
 
