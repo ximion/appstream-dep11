@@ -359,7 +359,6 @@ class MetadataExtractor:
                 cpt.add_hint("icon-format-unsupported", {'icon_fname': os.path.basename(last_pixmap)})
                 return False
 
-            # the IconFinder uses it's own, new session, since we run multiprocess here
             all_icon_sizes = self._icon_sizes[:]
             all_icon_sizes.extend(self._large_icon_sizes)
             icon_dict = self._icon_finder.find_icons(cpt.pkgname, icon_str, all_icon_sizes, cpt.binid)

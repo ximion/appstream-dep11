@@ -45,8 +45,17 @@ def safe_move_file(old_fname, new_fname):
     os.rename(old_fname, new_fname)
 
 
+def no_epoch(version):
+    v = version
+    if ":" in v:
+        return v[v.index(":")+1:]
+    else:
+        return v
+
+
 def get_pkg_id(name, version, arch):
-    return "%s_%s_%s" % (name, version, arch)
+    ver = no_epoch(version)
+    return "%s_%s_%s" % (name, ver, arch)
 
 
 class MetadataPool:
