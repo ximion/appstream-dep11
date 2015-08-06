@@ -32,7 +32,7 @@ class AbstractIconFinder:
     def __init__(self, suite_name, archive_component):
         pass
 
-    def find_icons(self, pkgname, icon_str, icon_sizes, binid=-1):
+    def find_icons(self, pkgname, icon_str, icon_sizes):
         return None
 
     def set_allowed_icon_extensions(self, exts):
@@ -123,7 +123,7 @@ class ContentsListIconFinder(AbstractIconFinder):
 
         return None
 
-    def find_icons(self, package, icon, sizes, binid):
+    def find_icons(self, package, icon, sizes):
         '''
         Tries to find the best possible icon available
         '''

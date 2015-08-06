@@ -94,14 +94,14 @@ class DEP11Component:
     Used to store the properties of component data. Used by MetadataExtractor
     '''
 
-    def __init__(self, suitename, component, binid, pkg):
+    def __init__(self, suitename, component, pkg, pkid=None):
         '''
         Used to set the properties to None.
         '''
         self._suitename = suitename
         self._component = component
         self._pkg = pkg
-        self._binid = binid
+        self._pkid = pkid
 
         # properties
         self._hints = list()
@@ -186,8 +186,8 @@ class DEP11Component:
         return self._pkg
 
     @property
-    def binid(self):
-        return self._binid
+    def pkid(self):
+        return self._pkid
 
     @property
     def name(self):

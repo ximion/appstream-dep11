@@ -361,7 +361,7 @@ class MetadataExtractor:
 
             all_icon_sizes = self._icon_sizes[:]
             all_icon_sizes.extend(self._large_icon_sizes)
-            icon_dict = self._icon_finder.find_icons(cpt.pkgname, icon_str, all_icon_sizes, cpt.binid)
+            icon_dict = self._icon_finder.find_icons(cpt.pkgname, icon_str, all_icon_sizes)
             success = False
             if icon_dict:
                 for size in self._icon_sizes:
@@ -393,7 +393,7 @@ class MetadataExtractor:
 
         return True
 
-    def process(self, pkgname, pkg_fname, metainfo_files=None, binid=-1):
+    def process(self, pkgname, pkg_fname, pkgid=None, metainfo_files=None):
         '''
         Reads the metadata from the xml file and the desktop files.
         And returns a list of DEP11Component objects.
@@ -413,14 +413,15 @@ class MetadataExtractor:
             filelist = None
 
         if not filelist:
-            cpt = DEP11Component(self._suite_name, self._archive_component, binid, pkgname)
+            cpt = DEP11Component(self._suite_name, self._archive_component, pkgname, pkgid)
             cpt.add_hint("deb-filelist-error", {'pkg_fname': os.path.basename(pkg_fname)})
             return [cpt]
 
-        if binid > 0:
-            component_basepath = "%s/%s" % (self._archive_component,
-                                    pkgname, str(binid))
+        component_basepath = None
+        if pkgid:
+            component_basepath = "%s/%s" % (self._archive_component, pkgid)
         else:
+            # we didn't get an identifier, so start guessing one.
             idname, ext = os.path.splitext(os.path.basename(pkg_fname))
             if not idname:
                 idname = os.path.basename(pkg_fname)
@@ -457,7 +458,7 @@ class MetadataExtractor:
         for meta_file in metainfo_files:
             if meta_file.endswith(".xml") and meta_file.startswith("usr/share/appdata"):
                 xml_content = None
-                cpt = DEP11Component(self._suite_name, self._archive_component, binid, pkgname)
+                cpt = DEP11Component(self._suite_name, self._archive_component, pkgname, pkgid)
 
                 try:
                     xml_content = str(deb.data.extractdata(meta_file).decode("utf-8"))
@@ -493,7 +494,7 @@ class MetadataExtractor:
         for mid, mdata in mdata_raw.items():
             if mid.endswith(".desktop"):
                 # We have a .desktop file
-                cpt = DEP11Component(self._suite_name, self._archive_component, binid, pkgname)
+                cpt = DEP11Component(self._suite_name, self._archive_component, pkgname, pkgid)
                 cpt.cid = mid
 
                 if mdata['error']:

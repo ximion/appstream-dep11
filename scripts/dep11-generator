@@ -119,8 +119,8 @@ class MetadataPool:
         self._db_hints.end_transaction()
 
 
-def extract_metadata(mde, sn, pkgname, package_fname, version, arch):
-    cpts = mde.process(pkgname, package_fname)
+def extract_metadata(mde, sn, pkgname, package_fname, version, arch, pkid):
+    cpts = mde.process(pkgname, package_fname, pkid)
 
     data = dict()
     data['arch'] = arch
@@ -325,7 +325,7 @@ class DEP11Generator:
                         log.warning('Package not found: %s' % (package_fname))
                         continue
                     pool.apply_async(extract_metadata,
-                                (mde, suite_name, pkg['name'], package_fname, pkg['version'], pkg['arch']), callback=parse_results)
+                                (mde, suite_name, pkg['name'], package_fname, pkg['version'], pkg['arch'], pkid), callback=parse_results)
                 pool.close()
                 pool.join()
 
