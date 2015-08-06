@@ -152,7 +152,7 @@ class MetadataExtractor:
                 # FIXME: The context parameter is only supported since Python 3.4.3, which is not
                 # yet widely available, so we can't use it here...
                 #! image = urllib.request.urlopen(origin_url, context=ssl_context).read()
-                image_req = urllib.request.urlopen(origin_url)
+                image_req = urllib.request.urlopen(origin_url, timeout=30)
                 if image_req.getcode() != 200:
                     msg = "HTTP status code was %i." % (image_req.getcode())
                     cpt.add_hint("screenshot-download-error", {'url': origin_url, 'cpt_id': cpt.cid, 'error': msg})
