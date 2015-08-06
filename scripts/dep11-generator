@@ -465,7 +465,7 @@ class DEP11Generator:
 
                     # we ignore packages without any interesting metadata here
                     hint = self._db_hints.get_str(idname)
-                    if hint == "ignore":
+                    if str(hint) == "ignore":
                         continue
 
                     self._db_hints.remove(idname)
