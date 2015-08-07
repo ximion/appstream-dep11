@@ -569,11 +569,14 @@ class DEP11Generator:
                             pksum = mdata_summaries[maintainer].get(pkg_name)
                             if not pksum:
                                 pksum = dict()
+                                pksum['archs'] = list()
 
                             if pksum.get('cids'):
-                                pksum['cids'].append(cid)
+                                if not cid in pksum['cids']:
+                                    pksum['cids'].append(cid)
                             else:
                                 pksum['cids'] = [cid]
+                            pksum['archs'].append(arch)
 
                             mdata_summaries[maintainer][pkg_name] = pksum
 

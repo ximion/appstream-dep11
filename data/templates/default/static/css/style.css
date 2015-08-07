@@ -142,6 +142,10 @@ span.avoidwrap { display: inline-block; }
     background-color: #d9534f;
 }
 
+.label-neutral {
+    background-color: #777;
+}
+
 .overviewlisting a {
     color: #000000;
     text-decoration: none;

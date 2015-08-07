@@ -17,6 +17,9 @@
             <span style="font-size:16px;">
             <a href="{{pkgname}}.html">{{pkgname}}</a>&nbsp;
             </span>
+            {% for arch in info.archs %}
+              <span style="font-size:10px;" class="label label-neutral">⚙ {{arch}}</span>
+            {% endfor %}
 
             <ul>
             {% for cid in info.cids %}
