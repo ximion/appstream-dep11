@@ -393,17 +393,19 @@ class DEP11Generator:
                     pkglist = self._get_packages_for(suite_name, component, arch)
                     for pkg in pkglist:
                         pkid = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
-                        pkgids.add(str(pkid))
+                        pkgids.add(pkid)
 
         # clean caches and database
         for pkid in self._db:
-            if str(pkid) in pkgids:
+            pkid = str(pkid, 'utf-8')
+            if pkid in pkgids:
                 continue
             self._db.remove(pkid)
             self._expire_asset(pkid)
 
         for pkid in self._db_hints:
-            if str(pkid) in pkgids:
+            pkid = str(pkid, 'utf-8')
+            if pkid in pkgids:
                 continue
             self._db_hints.remove(pkid)
             self._expire_asset(pkid)
