@@ -514,7 +514,7 @@ class MetadataExtractor:
         for cpt in component_dict.values():
             self._fetch_icon(cpt, export_path, pkg_fname, filelist)
             if cpt.kind == 'desktop-app' and not cpt.icon:
-                cpt.add_hint("gui-app-without-icon")
+                cpt.add_hint("gui-app-without-icon", {'cid': cpt.cid})
             else:
                 self._fetch_screenshots(cpt, export_path, public_url)
 
