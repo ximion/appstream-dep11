@@ -32,10 +32,17 @@ import multiprocessing as mp
 import logging as log
 
 from dep11.extractor import MetadataExtractor
-from dep11.component import DEP11Component, DEP11YamlDumper, get_dep11_header
+from dep11.component import DEP11Component, get_dep11_header, dict_to_dep11_yaml
 from dep11.iconfinder import ContentsListIconFinder
 from dep11.utils import read_packages_dict_from_file
 from dep11.hints import get_hint_tag_info
+
+try:
+    import pygments
+    from pygments.lexers import YamlLexer
+    from pygments.formatters import HtmlFormatter
+except:
+    pygments = None
 
 def safe_move_file(old_fname, new_fname):
     if not os.path.isfile(old_fname):
@@ -197,9 +204,9 @@ class DEP11Generator:
             log.error("Could not open hints cache: %s" % (str(self._db_hints.error())), file=sys.stderr)
             return False
 
-        self._hints_html_url = conf.get("HintsHtmlUrl")
-        if not self._hints_html_url:
-            self._hints_html_url = "."
+        self._html_url = conf.get("HintsHtmlUrl")
+        if not self._html_url:
+            self._html_url = "."
 
         template_dir = os.path.dirname(os.path.realpath(__file__))
         template_dir = os.path.realpath(os.path.join(template_dir, "..", "data", "templates", "default"))
@@ -415,12 +422,19 @@ class DEP11Generator:
         j2_env = Environment(loader=FileSystemLoader(self._template_dir))
 
         template = j2_env.get_template(name)
-        content = template.render(root_url=self._hints_html_url, distro=self._distro_name,
+        content = template.render(root_url=self._html_url, distro=self._distro_name,
                                     time=time.strftime("%Y-%m-%d %H:%M:%S %Z"), *args, **kwargs)
-        log.debug("Render: %s" % (out_path))
+        log.debug("Render: %s" % (out_path.replace(self._export_dir, "")))
         with open(out_path, 'wb') as f:
             f.write(bytes(content, 'utf-8'))
 
+
+    def _highlight_yaml(self, yml_data):
+        if not yml_data:
+            return ""
+        if not pygments:
+            return yml_data.replace("\n", "<br/>\n")
+        return pygments.highlight(yml_data, YamlLexer(), HtmlFormatter())
 
     def _expand_hint(self, hint_data):
         tag_name = hint_data['tag']
@@ -444,74 +458,146 @@ class DEP11Generator:
         dep11_hintsdir = os.path.join(self._export_dir, "hints")
         if not os.path.exists(dep11_hintsdir):
             return
+        dep11_minfodir = os.path.join(self._export_dir, "dep11")
+        if not os.path.exists(dep11_minfodir):
+            return
 
-        export_dir = os.path.join(self._export_dir, "hints_html")
+        export_dir = os.path.join(self._export_dir, "html")
         # Render archive suites index page
         self.render_template("suites_index.html", export_dir, "index.html", suites=self._suites_data.keys())
 
         # FIXME: Properly account for architecture, and remove old HTML files
         for suite_name in self._suites_data:
             suite = self._suites_data[suite_name]
-            export_dir = os.path.join(self._export_dir, "hints_html", suite_name)
+            export_dir = os.path.join(self._export_dir, "html", suite_name)
             # Render archive components index page
             self.render_template("sections_index.html", export_dir, "index.html",
                             sections=suite['components'], suite=suite_name)
 
             for component in suite['components']:
+                issue_summaries = dict()
+                mdata_summaries = dict()
+                export_dir_section = os.path.join(self._export_dir, "html", suite_name, component)
+                export_dir_issues = os.path.join(export_dir_section, "issues")
+                export_dir_metainfo = os.path.join(export_dir_section, "metainfo")
+
                 for arch in suite['architectures']:
-                    package_summaries = dict()
-                    export_dir = os.path.join(self._export_dir, "hints_html", suite_name, component)
                     h_fname = os.path.join(dep11_hintsdir, suite_name, component, "DEP11Hints_%s.yml.gz" % (arch))
-                    if not os.path.isfile(h_fname):
-                        continue
-                    f = gzip.open(h_fname, 'r')
-                    hints_data = yaml.safe_load_all(f.read())
-                    f.close()
-                    if not hints_data:
-                        continue
+                    hints_data = None
+                    if os.path.isfile(h_fname):
+                        f = gzip.open(h_fname, 'r')
+                        hints_data = yaml.safe_load_all(f.read())
+                        f.close()
+
+                    d_fname = os.path.join(dep11_minfodir, suite_name, component, "Components-%s.yml.gz" % (arch))
+                    dep11_data = None
+                    if os.path.isfile(d_fname):
+                        f = gzip.open(d_fname, 'r')
+                        dep11_data = yaml.safe_load_all(f.read())
+                        f.close()
 
                     packages_list = self._get_packages_for(suite_name, component, arch)
                     pkg_maintainer = dict()
                     for pkg in packages_list:
                         pkg_maintainer[pkg['name']] = pkg['maintainer']
 
-                    for hint in hints_data:
-                        pkg_name = hint['Package']
-                        maintainer = pkg_maintainer.get(pkg_name)
-                        if not maintainer:
-                            maintainer = "Unknown"
-                        if not package_summaries.get(maintainer):
-                            package_summaries[maintainer] = list()
-                        hints_raw = hint.get('Hints', list())
 
-                        # expand all hints to show long descriptions
-                        errors = list()
-                        warnings = list()
-                        infos = list()
+                    if hints_data:
+                        for hint in hints_data:
+                            pkg_name = hint['Package']
+                            maintainer = pkg_maintainer.get(pkg_name)
+                            if not maintainer:
+                                maintainer = "Unknown"
+                            if not issue_summaries.get(maintainer):
+                                issue_summaries[maintainer] = dict()
 
-                        for hint in hints_raw:
-                            ehint = self._expand_hint(hint)
-                            severity = ehint['severity']
-                            if severity == "info":
-                                infos.append(ehint)
-                            elif severity == "warning":
-                                warnings.append(ehint)
+                            # check if we had this package already on a different architecture
+                            pksum = issue_summaries[maintainer].get(pkg_name)
+                            if pksum:
+                                pksum['archs'].append(arch)
+                                continue
+
+                            hints_raw = hint.get('Hints', list())
+
+                            # expand all hints to show long descriptions
+                            errors = list()
+                            warnings = list()
+                            infos = list()
+
+                            for hint in hints_raw:
+                                ehint = self._expand_hint(hint)
+                                severity = ehint['severity']
+                                if severity == "info":
+                                    infos.append(ehint)
+                                elif severity == "warning":
+                                    warnings.append(ehint)
+                                else:
+                                    errors.append(ehint)
+
+                            # add info for global index
+                            issue_summaries[maintainer][pkg_name] = {'errors_count': len(errors), 'warnings_count': len(warnings), 'infos_count': len(infos), 'archs': [arch]}
+
+                            # render issues page
+                            self.render_template("issues_page.html", export_dir_issues, "%s.html" % (pkg_name),
+                                    package_name=pkg_name, errors=errors, warnings=warnings, infos=infos, suite=suite_name, section=component)
+                    if dep11_data:
+                        pkg_cpts = dict()
+                        for mdata in dep11_data:
+                            pkg_name = mdata.get('Packages')
+                            if not pkg_name:
+                                # we probably hit the header
+                                continue
+                            pkg_name = pkg_name[0]
+                            maintainer = pkg_maintainer.get(pkg_name)
+                            if not maintainer:
+                                maintainer = "Unknown"
+                            if not mdata_summaries.get(maintainer):
+                                mdata_summaries[maintainer] = dict()
+
+                            mdata_yml = dict_to_dep11_yaml(mdata)
+                            mdata_yml = self._highlight_yaml(mdata_yml)
+
+                            if not pkg_cpts.get(pkg_name):
+                                pkg_cpts[pkg_name] = list()
+
+                            cid = mdata.get('ID')
+                            pkg_cpts[pkg_name].append({'cid': cid, 'mdata': mdata_yml})
+
+                            # check if we had this package
+                            pksum = mdata_summaries[maintainer].get(pkg_name)
+                            if not pksum:
+                                pksum = dict()
+
+                            if pksum.get('cids'):
+                                pksum['cids'].append(cid)
                             else:
-                                errors.append(ehint)
+                                pksum['cids'] = [cid]
 
-                        # add info for global index
-                        package_summaries[maintainer].append({'pkgname': pkg_name, 'errors_count': len(errors), 'warnings_count': len(warnings), 'infos_count': len(infos)})
+                            mdata_summaries[maintainer][pkg_name] = pksum
 
-                        # render page
-                        self.render_template("issues_page.html", export_dir, "%s.html" % (pkg_name),
-                                package_name=pkg_name, errors=errors, warnings=warnings, infos=infos, suite=suite_name, section=component)
+                        # render page with all components in a package
+                        for pkg_name, cptlist in pkg_cpts.items():
+                            # render metainfo page
+                            self.render_template("metainfo_page.html", export_dir_metainfo, "%s.html" % (pkg_name),
+                                    package_name=pkg_name, cpts=cptlist, suite=suite_name, section=component)
 
-                    # Now render our index page
-                    self.render_template("issues_index.html", export_dir, "index.html",
-                                package_summaries=package_summaries, suite=suite_name, section=component)
+                    if not dep11_data and not hints_data:
+                        log.warning("Suite %s/%s/%s does not contain DEP-11 data or issue hints.", suite_name, component, arch)
+
+                # Render our overview page
+                self.render_template("section_overview.html", export_dir_section, "index.html",
+                            suite=suite_name, section=component)
+
+                # Now render our issue index page
+                self.render_template("issues_index.html", export_dir_issues, "index.html",
+                            package_summaries=issue_summaries, suite=suite_name, section=component)
+
+                # ... and the metainfo index page
+                self.render_template("metainfo_index.html", export_dir_metainfo, "index.html",
+                            package_summaries=mdata_summaries, suite=suite_name, section=component)
 
         # Copy the static files
-        target_static_dir = os.path.join(self._export_dir, "hints_html", "static")
+        target_static_dir = os.path.join(self._export_dir, "html", "static")
         shutil.rmtree(target_static_dir, ignore_errors=True)
         shutil.copytree(os.path.join(self._template_dir, "static"), target_static_dir)
 

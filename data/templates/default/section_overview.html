@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}DEP-11 data for {{distro}}: {{suite}} suite{% endblock %}
+
+{% block header_content %}
+<span style="font-size:18px;"><a href="../" style="color: #000000;">⇦ |</a></span>
+<span>DEP-11 data for {{distro}}/{{suite}}</span>
+{% endblock %}
+
+{% block content %}
+    <h1>Overview for {{section}}</h1>
+
+
+    <h3><a href="issues/index.html">Issues</a></h3>
+
+    <h3><a href="metainfo/index.html">Metainfo</a></h3>
+
+{% endblock %}
+
+{% block float_right %}
+<small>Last updated on: {{time}}</small>
+{% endblock %}

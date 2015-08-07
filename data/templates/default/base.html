@@ -7,13 +7,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="">
     <meta name="author" content="">
-    {% block head_meta_extra %}{% endblock %}
 
     <title>Debian DEP-11 Report - {% block title %}{% endblock %}</title>
 
     <link href="{{root_url}}/static/css/style.css" rel="stylesheet" type="text/css" />
-
     <link rel="shortcut icon" href="static/img/favicon.png">
+
+    {% block head_extra %}{% endblock %}
 {% endblock %}
 </head>
 

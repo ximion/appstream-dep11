@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}{{package_name}} in {{suite}}{% endblock %}
+
+{% block head_extra %}
+<link href="{{root_url}}/static/css/highlight.css" rel="stylesheet" type="text/css" />
+{% endblock %}
+
+{% block header_content %}
+<span style="font-size:18px;"><a href="index.html" style="color: #000000;">⇦ |</a></span>
+
+<span>{{package_name}}</span> <span style="font-size:16px;">[{{suite}}]</span>
+{% endblock %}
+
+{% block content %}
+    <h1>DEP-11 metadata for {{package_name}} in {{suite}}</h1>
+
+    <div class="wrapper">
+
+      {% for cpt in cpts %}
+      <h2>{{cpt.cid}}</h2>
+      <div class="well">
+        {{cpt.mdata}}
+      </div>
+      {% endfor %}
+
+    </div>
+
+{% endblock %}
+
+{% block float_right %}
+<small>Last updated on: {{time}}</small>
+{% endblock %}

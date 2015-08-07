@@ -43,12 +43,20 @@ class DEP11YamlDumper(yaml.Dumper):
     def increase_indent(self, flow=False, indentless=False):
         return super(DEP11YamlDumper, self).increase_indent(flow, False)
 
+
 def get_dep11_header(suite_name, component_name):
     head_dict = dep11_header_template
     head_dict['Origin'] = "%s-%s" % (suite_name, component_name)
     return yaml.dump(head_dict, Dumper=DEP11YamlDumper,
                             default_flow_style=False, explicit_start=True,
                             explicit_end=False, width=200, indent=2)
+
+
+def dict_to_dep11_yaml(d):
+    return yaml.dump(d, Dumper=DEP11YamlDumper,
+                    default_flow_style=False, explicit_start=True,
+                    explicit_end=False, width=100, indent=2,
+                    allow_unicode=True)
 
 class IconSize:
     '''
@@ -73,6 +81,7 @@ class IconSize:
         if int(wd) != int(ht):
             log.warning("Processing asymetric icon.")
         self.size = int(wd)
+
 
 class ProvidedItemType:
     '''
@@ -158,10 +167,7 @@ class DEP11Component:
     def get_hints_yaml(self):
         if not self._hints:
             return None
-        return yaml.dump(self.get_hints_dict(), Dumper=DEP11YamlDumper,
-                    default_flow_style=False, explicit_start=True,
-                    explicit_end=False, width=100, indent=2,
-                    allow_unicode=True)
+        return dict_to_dep11_yaml(self.get_hints_dict())
 
 
     @property
@@ -429,7 +435,4 @@ class DEP11Component:
 
 
     def to_yaml_doc(self):
-        return yaml.dump(self.finalize_to_dict(), Dumper=DEP11YamlDumper,
-                    default_flow_style=False, explicit_start=True,
-                    explicit_end=False, width=100, indent=2,
-                    allow_unicode=True)
+        return dict_to_dep11_yaml(self.finalize_to_dict())

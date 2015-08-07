@@ -75,7 +75,8 @@ missing-desktop-file:
   severity: error
 
 gui-app-without-icon:
-  text: A GUI application (application which has a .desktop file for the XDG menu and <code>Type=Application</code>) has been found, but we could not find a matching icon.
+  text: The GUI application (application which has a .desktop file for the XDG menu and <code>Type=Application</code>) with AppStream-ID '%(cid)s' has been found,
+        but we could not find a matching icon.
   severity: error
 
 screenshot-download-error:

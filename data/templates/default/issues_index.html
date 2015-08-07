@@ -12,10 +12,10 @@
       {% for maintainer, summary in package_summaries.items() %}
         <h3>{{maintainer|e}}</h3>
         <ul class="overviewlisting">
-        {% for hints in summary %}
+        {% for pkgname, hints in summary.items() %}
           <li>
             <span style="font-size:16px;">
-            <a href="{{hints.pkgname}}.html">{{hints.pkgname}}</a>&nbsp;
+            <a href="{{pkgname}}.html">{{pkgname}}</a>&nbsp;
             </span>
           {% if hints.infos_count %}
             <span class="label label-info">Infos: {{hints.infos_count}}</span>
@@ -26,6 +26,13 @@
           {% if hints.errors_count %}
             <span class="label label-error">Errors: {{hints.errors_count}}</span>
           {% endif %}
+
+          <!--
+          {% for arch in hints.archs %}
+            <small>{{arch}}</small>&nbsp;
+          {% endfor %}
+          -->
+
           </li>
         {% endfor %}
         </ul>
