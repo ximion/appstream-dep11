@@ -74,10 +74,18 @@ class ContentsListIconFinder(AbstractIconFinder):
             line = _decode_contents_line(line)
             if line.startswith("usr/share/icons/hicolor/") or line.startswith("usr/share/pixmaps/"):
                 self._contents_data.append(line)
+                continue
 
             # allow Oxygen icon theme, needed to support KDE apps
             if line.startswith("usr/share/icons/oxygen"):
                 self._contents_data.append(line)
+                continue
+
+            # in rare events, GNOME needs the same treatment, so special-case Adwaita as well
+            if line.startswith("usr/share/icons/Adwaita"):
+                self._contents_data.append(line)
+                continue
+
         f.close()
 
         self._packages_dict = pkgdict
