@@ -204,7 +204,7 @@ class DEP11Generator:
             log.error("Could not open hints cache: %s" % (str(self._db_hints.error())), file=sys.stderr)
             return False
 
-        self._html_url = conf.get("HintsHtmlUrl")
+        self._html_url = conf.get("HtmlUrl")
         if not self._html_url:
             self._html_url = "."
 
