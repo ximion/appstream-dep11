@@ -290,9 +290,12 @@ def read_appstream_upstream_xml(cpt, xml_content):
                         ProvidedItemType.LIBRARY, bins.text
                     )
                 if bins.tag == 'dbus':
-                    cpt.add_provided_item(
-                        ProvidedItemType.DBUS, bins.text
-                    )
+                    if not cpt.provides.get(ProvidedItemType.DBUS):
+                        cpt.provides[ProvidedItemType.DBUS] = list()
+
+                    bus_kind = bins.attrib.get('type')
+                    if bus_kind:
+                        cpt.provides[ProvidedItemType.DBUS].append({'type': bus_kind, 'service': bins.text})
                 if bins.tag == 'firmware':
                     cpt.add_provided_item(
                         ProvidedItemType.FIRMWARE, bins.text
