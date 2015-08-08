@@ -17,21 +17,15 @@
             <span style="font-size:16px;">
             <a href="{{pkgname}}.html">{{pkgname}}</a>&nbsp;
             </span>
-          {% if hints.infos_count %}
-            <span class="label label-info">Infos: {{hints.infos_count}}</span>
+          {% if hints.info_count %}
+            <span class="label label-info">Infos: {{hints.info_count}}</span>
           {% endif %}
-          {% if hints.warnings_count %}
-            <span class="label label-warning">Warnings: {{hints.warnings_count}}</span>
+          {% if hints.warning_count %}
+            <span class="label label-warning">Warnings: {{hints.warning_count}}</span>
           {% endif %}
-          {% if hints.errors_count %}
-            <span class="label label-error">Errors: {{hints.errors_count}}</span>
+          {% if hints.error_count %}
+            <span class="label label-error">Errors: {{hints.error_count}}</span>
           {% endif %}
-
-          <!--
-          {% for arch in hints.archs %}
-            <small>{{arch}}</small>&nbsp;
-          {% endfor %}
-          -->
 
           </li>
         {% endfor %}

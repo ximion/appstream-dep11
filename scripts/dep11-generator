@@ -613,12 +613,6 @@ class HTMLGenerator:
                             if not issue_summaries.get(maintainer):
                                 issue_summaries[maintainer] = dict()
 
-                            # check if we had this package already on a different architecture
-                            pksum = issue_summaries[maintainer].get(pkg_name)
-                            if pksum:
-                                pksum['archs'].append(arch)
-                                continue
-
                             hints_raw = hint.get('Hints', list())
 
                             # expand all hints to show long descriptions
@@ -658,7 +652,8 @@ class HTMLGenerator:
                                 info_count += len(infos)
 
                                 # add info for global index
-                                issue_summaries[maintainer][pkg_name] = {'error_count': len(errors), 'warning_count': len(warnings), 'info_count': len(infos), 'archs': [arch]}
+                                if not issue_summaries[maintainer].get(pkg_name):
+                                    issue_summaries[maintainer][pkg_name] = {'error_count': len(errors), 'warning_count': len(warnings), 'info_count': len(infos)}
 
                     if dep11_data:
                         for mdata in dep11_data:
@@ -701,7 +696,7 @@ class HTMLGenerator:
                             page_data = {'cid': cid, 'mdata': mdata_yml, 'icon_url': icon_url, 'archs': [arch]}
                             try:
                                 l = cpt_pages[pkg_name]
-                                index = next(i for i, v in enumerate(l) if equal_dicts(v, page_data, 'archs'))
+                                index = next(i for i, v in enumerate(l) if equal_dicts(v, page_data, ('archs', 'icon_url')))
                                 cpt_pages[pkg_name][index]['archs'].append(arch)
                             except StopIteration:
                                 cpt_pages[pkg_name].append(page_data)
@@ -738,6 +733,14 @@ class HTMLGenerator:
                     self.render_template("metainfo_page.html", export_dir_metainfo, "%s.html" % (pkg_name),
                             package_name=pkg_name, cpts=cptlist, suite=suite_name, section=component)
 
+                # Now render our issue index page
+                self.render_template("issues_index.html", export_dir_issues, "index.html",
+                            package_summaries=issue_summaries, suite=suite_name, section=component)
+
+                # ... and the metainfo index page
+                self.render_template("metainfo_index.html", export_dir_metainfo, "index.html",
+                            package_summaries=mdata_summaries, suite=suite_name, section=component)
+
 
                 validate_result = "Validation was not performed."
                 if dep11_data:
@@ -771,13 +774,6 @@ class HTMLGenerator:
                             metainfo_count=metainfo_count, error_count=error_count, warning_count=warning_count,
                             info_count=info_count, validate_result=validate_result)
 
-                # Now render our issue index page
-                self.render_template("issues_index.html", export_dir_issues, "index.html",
-                            package_summaries=issue_summaries, suite=suite_name, section=component)
-
-                # ... and the metainfo index page
-                self.render_template("metainfo_index.html", export_dir_metainfo, "index.html",
-                            package_summaries=mdata_summaries, suite=suite_name, section=component)
 
             # calculate statistics for this suite
             count = suite_metainfo_count + suite_error_count + suite_warning_count + suite_info_count
