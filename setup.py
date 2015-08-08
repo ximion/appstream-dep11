@@ -28,7 +28,7 @@ for root, dirs, files in os.walk("data/"):
         data_files.append( (os.path.join(data_target, tdir), [os.path.join(root, fname)]) )
 
 setup(name = 'dep11',
-      version = '0.1',
+      version = '0.2',
       description = 'DEP-11 metadata tools for Debian',
       url = 'https://github.com/ximion/dep11', # TODO: Move that to Debian infrastructure soon
       author = 'Matthias Klumpp',
