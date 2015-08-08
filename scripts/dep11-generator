@@ -139,6 +139,31 @@ def extract_metadata(mde, sn, pkgname, package_fname, version, arch, pkid):
     return (PROC_STATUS_SUCCESS, data)
 
 
+def load_generator_config(wdir):
+    conf_fname = os.path.join(wdir, "dep11-config.yml")
+    if not os.path.isfile(conf_fname):
+        print("Could not find configuration! Make sure 'dep11-config.yml' exists!")
+        return None
+
+    f = open(conf_fname, 'r')
+    conf = yaml.safe_load(f.read())
+    f.close()
+
+    if not conf:
+        print("Configuration is empty!")
+        return None
+
+    if not conf.get("ArchiveRoot"):
+        print("You need to specify an archive root path.")
+        return None
+
+    if not conf.get("Suites"):
+        print("Config is missing information about suites!")
+        return None
+
+    return conf
+
+
 class DEP11Generator:
     def __init__(self):
         pass
@@ -147,25 +172,8 @@ class DEP11Generator:
     def initialize(self, dep11_dir):
         dep11_dir = os.path.abspath(dep11_dir)
 
-        conf_fname = os.path.join(dep11_dir, "dep11-config.yml")
-        if not os.path.isfile(conf_fname):
-            print("Could not find configuration! Make sure 'dep11-config.yml' exists!")
-            return False
-
-        f = open(conf_fname, 'r')
-        conf = yaml.safe_load(f.read())
-        f.close()
-
+        conf = load_generator_config(dep11_dir)
         if not conf:
-            print("Configuration is empty!")
-            return False
-
-        if not conf.get("ArchiveRoot"):
-            print("You need to specify an archive root path.")
-            return False
-
-        if not conf.get("Suites"):
-            print("Config is missing information about suites!")
             return False
 
         if not conf.get("AssetsUrl"):
@@ -203,17 +211,6 @@ class DEP11Generator:
         if not self._db_hints.open(os.path.join(self._cache_dir, "hints_cache.kch"), DB.OREADER | DB.OWRITER | DB.OCREATE):
             log.error("Could not open hints cache: %s" % (str(self._db_hints.error())), file=sys.stderr)
             return False
-
-        self._html_url = conf.get("HtmlUrl")
-        if not self._html_url:
-            self._html_url = "."
-
-        template_dir = os.path.dirname(os.path.realpath(__file__))
-        template_dir = os.path.realpath(os.path.join(template_dir, "..", "data", "templates", "default"))
-        if not os.path.isdir(template_dir):
-            template_dir = os.path.join(sys.prefix, "share", "dep11", "templates")
-
-        self._template_dir = template_dir
 
         self._distro_name = conf.get("DistroName")
         if not self._distro_name:
@@ -411,6 +408,77 @@ class DEP11Generator:
             self._expire_asset(pkid)
 
 
+    def remove_processed(self, suite_name):
+        '''
+        Delete information about processed packages, to later reprocess them.
+        '''
+
+        suite = self._suites_data.get(suite_name)
+        if not suite:
+            log.error("Suite '%s' not found!" % (suite_name))
+            return False
+
+        for component in suite['components']:
+            all_cpt_pkgs = list()
+            for arch in suite['architectures']:
+                pkglist = self._get_packages_for(suite_name, component, arch)
+
+                for pkg in pkglist:
+                    package_fname = os.path.join (self._archive_root, pkg['filename'])
+                    pkid = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
+
+                    # we ignore packages without any interesting metadata here
+                    hint = self._db_hints.get_str(pkid)
+                    if str(hint) == "ignore":
+                        continue
+
+                    self._db_hints.remove(pkid)
+                    self._db.remove(pkid)
+                    self._expire_asset(pkid)
+
+
+class HTMLGenerator:
+    def __init__(self):
+        pass
+
+
+    def initialize(self, dep11_dir):
+        dep11_dir = os.path.abspath(dep11_dir)
+
+        conf = load_generator_config(dep11_dir)
+        if not conf:
+            return False
+
+        self._archive_root = conf.get("ArchiveRoot")
+
+        self._html_url = conf.get("HtmlUrl")
+        if not self._html_url:
+            self._html_url = "."
+
+        template_dir = os.path.dirname(os.path.realpath(__file__))
+        template_dir = os.path.realpath(os.path.join(template_dir, "..", "data", "templates", "default"))
+        if not os.path.isdir(template_dir):
+            template_dir = os.path.join(sys.prefix, "share", "dep11", "templates")
+
+        self._template_dir = template_dir
+
+        self._distro_name = conf.get("DistroName")
+        if not self._distro_name:
+            self._distro_name = "Debian"
+
+        self._export_dir = os.path.join(dep11_dir, "export")
+        if conf.get("ExportDir"):
+            self._export_dir = conf.get("ExportDir")
+
+        if not os.path.exists(self._export_dir):
+            os.makedirs(self._export_dir)
+
+        self._suites_data = conf['Suites']
+
+        os.chdir(dep11_dir)
+        return True
+
+
     def render_template(self, name, out_dir, out_name = None, *args, **kwargs):
         if not out_name:
             out_path = os.path.join(out_dir, name)
@@ -437,6 +505,7 @@ class DEP11Generator:
         if not pygments:
             return yml_data.replace("\n", "<br/>\n")
         return pygments.highlight(yml_data, YamlLexer(), HtmlFormatter())
+
 
     def _expand_hint(self, hint_data):
         tag_name = hint_data['tag']
@@ -498,16 +567,15 @@ class DEP11Generator:
                         dep11_data = yaml.safe_load_all(f.read())
                         f.close()
 
-                    packages_list = self._get_packages_for(suite_name, component, arch)
-                    pkg_maintainer = dict()
-                    for pkg in packages_list:
-                        pkg_maintainer[pkg['name']] = pkg['maintainer']
-
+                    pkg_index = read_packages_dict_from_file(self._archive_root, suite_name, component, arch)
 
                     if hints_data:
                         for hint in hints_data:
                             pkg_name = hint['Package']
-                            maintainer = pkg_maintainer.get(pkg_name)
+                            pkg = pkg_index.get(pkg_name)
+                            maintainer = None
+                            if pkg:
+                                maintainer = pkg['maintainer']
                             if not maintainer:
                                 maintainer = "Unknown"
                             if not issue_summaries.get(maintainer):
@@ -550,7 +618,10 @@ class DEP11Generator:
                                 # we probably hit the header
                                 continue
                             pkg_name = pkg_name[0]
-                            maintainer = pkg_maintainer.get(pkg_name)
+                            pkg = pkg_index.get(pkg_name)
+                            maintainer = None
+                            if pkg:
+                                maintainer = pkg['maintainer']
                             if not maintainer:
                                 maintainer = "Unknown"
                             if not mdata_summaries.get(maintainer):
@@ -607,35 +678,6 @@ class DEP11Generator:
         shutil.copytree(os.path.join(self._template_dir, "static"), target_static_dir)
 
 
-    def remove_processed(self, suite_name):
-        '''
-        Delete information about processed packages, to later reprocess them.
-        '''
-
-        suite = self._suites_data.get(suite_name)
-        if not suite:
-            log.error("Suite '%s' not found!" % (suite_name))
-            return False
-
-        for component in suite['components']:
-            all_cpt_pkgs = list()
-            for arch in suite['architectures']:
-                pkglist = self._get_packages_for(suite_name, component, arch)
-
-                for pkg in pkglist:
-                    package_fname = os.path.join (self._archive_root, pkg['filename'])
-                    pkid = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
-
-                    # we ignore packages without any interesting metadata here
-                    hint = self._db_hints.get_str(pkid)
-                    if str(hint) == "ignore":
-                        continue
-
-                    self._db_hints.remove(pkid)
-                    self._db.remove(pkid)
-                    self._expire_asset(pkid)
-
-
 def main():
     parser = OptionParser()
 
@@ -654,7 +696,7 @@ def main():
 
     if command == "process":
         if len(args) != 3:
-            print("You need to specify a DEP-11 data dir and a suite.")
+            print("Invalid number of arguments: You need to specify a DEP-11 data dir and a suite.")
             sys.exit(1)
         gen = DEP11Generator()
         ret = gen.initialize(args[1])
@@ -665,7 +707,7 @@ def main():
         gen.process_suite(args[2])
     elif command == "cleanup":
         if len(args) != 2:
-            print("You need to specify a DEP-11 data dir.")
+            print("Invalid number of arguments: You need to specify a DEP-11 data dir.")
             sys.exit(1)
         gen = DEP11Generator()
         ret = gen.initialize(args[1])
@@ -676,18 +718,18 @@ def main():
         gen.expire_cache()
     elif command == "update-html":
         if len(args) != 2:
-            print("You need to specify a DEP-11 data dir.")
+            print("Invalid number of arguments: You need to specify a DEP-11 data dir.")
             sys.exit(1)
-        gen = DEP11Generator()
-        ret = gen.initialize(args[1])
+        hgen = HTMLGenerator()
+        ret = hgen.initialize(args[1])
         if not ret:
             print("Initialization failed, can not continue.")
             sys.exit(2)
 
-        gen.update_html()
+        hgen.update_html()
     elif command == "remove-processed":
         if len(args) != 3:
-            print("You need to specify a DEP-11 data dir and suite.")
+            print("Invalid number of arguments: You need to specify a DEP-11 data dir and suite.")
             sys.exit(1)
         gen = DEP11Generator()
         ret = gen.initialize(args[1])
