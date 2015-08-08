@@ -65,6 +65,17 @@ def get_pkg_id(name, version, arch):
     return "%s_%s_%s" % (name, ver, arch)
 
 
+def equal_dicts(d1, d2, ignore_keys):
+    ignored = set(ignore_keys)
+    for k1, v1 in d1.iteritems():
+        if k1 not in ignored and (k1 not in d2 or d2[k1] != v1):
+            return False
+    for k2, v2 in d2.iteritems():
+        if k2 not in ignored and k2 not in d1:
+            return False
+    return True
+
+
 class MetadataPool:
     '''
     A pool of component metadata
@@ -475,6 +486,8 @@ class HTMLGenerator:
 
         self._suites_data = conf['Suites']
 
+        self._html_export_dir = os.path.join(self._export_dir, "html")
+
         os.chdir(dep11_dir)
         return True
 
@@ -494,7 +507,7 @@ class HTMLGenerator:
         template = j2_env.get_template(name)
         content = template.render(root_url=self._html_url, distro=self._distro_name,
                                     time=time.strftime("%Y-%m-%d %H:%M:%S %Z"), *args, **kwargs)
-        log.debug("Render: %s" % (out_path.replace(self._export_dir, "")))
+        log.debug("Render: %s" % (out_path.replace(self._html_export_dir, "")))
         with open(out_path, 'wb') as f:
             f.write(bytes(content, 'utf-8'))
 
@@ -533,11 +546,11 @@ class HTMLGenerator:
         if not os.path.exists(dep11_minfodir):
             return
 
-        export_dir = os.path.join(self._export_dir, "html")
+        export_dir = self._html_export_dir
         # Render archive suites index page
         self.render_template("suites_index.html", export_dir, "index.html", suites=self._suites_data.keys())
 
-        # FIXME: Properly account for architecture, and remove old HTML files
+        # FIXME: Remove old HTML files
         for suite_name in self._suites_data:
             suite = self._suites_data[suite_name]
             export_dir = os.path.join(self._export_dir, "html", suite_name)
@@ -570,8 +583,12 @@ class HTMLGenerator:
                     pkg_index = read_packages_dict_from_file(self._archive_root, suite_name, component, arch)
 
                     if hints_data:
+                        hint_pages = dict()
                         for hint in hints_data:
                             pkg_name = hint['Package']
+                            pkg_id = hint.get('PackageID')
+                            if not pkg_id:
+                                pkg_id = pkg_name
                             pkg = pkg_index.get(pkg_name)
                             maintainer = None
                             if pkg:
@@ -604,14 +621,32 @@ class HTMLGenerator:
                                 else:
                                     errors.append(ehint)
 
-                            # add info for global index
-                            issue_summaries[maintainer][pkg_name] = {'errors_count': len(errors), 'warnings_count': len(warnings), 'infos_count': len(infos), 'archs': [arch]}
+                            if not hint_pages.get(pkg_name):
+                                hint_pages[pkg_name] = list()
 
+                            # we fold multiple architectures with the same issues into one view
+                            pkid_noarch = pkg_id
+                            if "_" in pkg_id:
+                                pkid_noarch = pkg_id[:pkg_id.rfind("_")]
+
+                            page_data = {'package_id': pkid_noarch, 'errors': errors, 'warnings': warnings, 'infos': infos, 'archs': [arch]}
+                            try:
+                                l = hint_pages[pkg_name]
+                                index = next(i for i, v in enumerate(l) if equal_dicts(v, page_data, 'archs'))
+                                l[index]['archs'].append(arch)
+                            except StopIteration:
+                                hint_pages[pkg_name].append(page_data)
+
+                                # add info for global index
+                                issue_summaries[maintainer][pkg_name] = {'errors_count': len(errors), 'warnings_count': len(warnings), 'infos_count': len(infos), 'archs': [arch]}
+
+                        # now write the HTML pages with the previously collected & transformed issue data
+                        for pkg_name, entry_list in hint_pages.items():
                             # render issues page
                             self.render_template("issues_page.html", export_dir_issues, "%s.html" % (pkg_name),
-                                    package_name=pkg_name, errors=errors, warnings=warnings, infos=infos, suite=suite_name, section=component)
+                                    package_name=pkg_name, entries=entry_list, suite=suite_name, section=component)
                     if dep11_data:
-                        pkg_cpts = dict()
+                        cpt_pages = dict()
                         for mdata in dep11_data:
                             pkg_name = mdata.get('Packages')
                             if not pkg_name:
@@ -630,29 +665,33 @@ class HTMLGenerator:
                             mdata_yml = dict_to_dep11_yaml(mdata)
                             mdata_yml = self._highlight_yaml(mdata_yml)
 
-                            if not pkg_cpts.get(pkg_name):
-                                pkg_cpts[pkg_name] = list()
+                            if not cpt_pages.get(pkg_name):
+                                cpt_pages[pkg_name] = list()
 
                             cid = mdata.get('ID')
-                            pkg_cpts[pkg_name].append({'cid': cid, 'mdata': mdata_yml})
+                            page_data = {'cid': cid, 'mdata': mdata_yml, 'archs': [arch]}
+                            try:
+                                l = cpt_pages[pkg_name]
+                                index = next(i for i, v in enumerate(l) if equal_dicts(v, page_data, 'archs'))
+                                l[index]['archs'].append(arch)
+                            except StopIteration:
+                                cpt_pages[pkg_name].append(page_data)
 
-                            # check if we had this package
+                            # check if we had this package, and add to summary
                             pksum = mdata_summaries[maintainer].get(pkg_name)
                             if not pksum:
                                 pksum = dict()
-                                pksum['archs'] = list()
 
                             if pksum.get('cids'):
                                 if not cid in pksum['cids']:
                                     pksum['cids'].append(cid)
                             else:
                                 pksum['cids'] = [cid]
-                            pksum['archs'].append(arch)
 
                             mdata_summaries[maintainer][pkg_name] = pksum
 
                         # render page with all components in a package
-                        for pkg_name, cptlist in pkg_cpts.items():
+                        for pkg_name, cptlist in cpt_pages.items():
                             # render metainfo page
                             self.render_template("metainfo_page.html", export_dir_metainfo, "%s.html" % (pkg_name),
                                     package_name=pkg_name, cpts=cptlist, suite=suite_name, section=component)

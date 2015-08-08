@@ -157,6 +157,8 @@ class DEP11Component:
             hdict['Type'] = self.kind
         if self._pkg:
             hdict['Package'] = self._pkg
+        if self._pkid:
+            hdict['PackageID'] = self._pkid
         if self.has_ignore_reason():
             hdict['Ignored'] = True
         hdict['Hints'] = self._hints

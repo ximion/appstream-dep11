@@ -17,7 +17,12 @@
     <div class="wrapper">
 
       {% for cpt in cpts %}
-      <h2>{{cpt.cid}}</h2>
+      <h2>
+        {{cpt.cid}}
+        {% for arch in cpt.archs %}
+          <span style="font-size:12px;" class="label label-neutral">⚙ {{arch}}</span>
+        {% endfor %}
+      </h2>
       <div class="well">
         {{cpt.mdata}}
       </div>
