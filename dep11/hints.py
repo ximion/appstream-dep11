@@ -20,6 +20,8 @@ import sys
 import yaml
 import logging as log
 
+__all__ = []
+
 _DEP11_HINT_DESCRIPTIONS = None
 
 class HintSeverity:
@@ -29,6 +31,8 @@ class HintSeverity:
     ERROR = 3
     WARNING = 2
     INFO = 1
+
+__all__.append('HintSeverity')
 
 
 class Hint:
@@ -46,6 +50,9 @@ class Hint:
 
     def __str__(self):
         return "%s: %s (%s)" % (str(self.severity), tag_name, str(text_params))
+
+__all__.append('Hint')
+
 
 def get_hints_index_fname():
     '''
@@ -73,6 +80,8 @@ def get_hint_description_index():
         f.close()
     return _DEP11_HINT_DESCRIPTIONS
 
+__all__.append('get_hint_description_index')
+
 
 def get_hint_tag_info(tag_name):
     idx = get_hint_description_index()
@@ -81,6 +90,8 @@ def get_hint_tag_info(tag_name):
         log.error("Could not find tag name: %s", tag_name)
         tag = idx.get("internal-unknown-tag")
     return tag
+
+__all__.append('get_hint_tag_info')
 
 
 def get_hint_severity(tag_name):
@@ -94,6 +105,8 @@ def get_hint_severity(tag_name):
         return HintSeverity.INFO
     return HintSeverity.ERROR
 
+__all__.append('get_hint_severity')
+
 
 def hint_tag_is_error(tag_name):
     tag = get_hint_tag_info(tag_name)
@@ -103,3 +116,5 @@ def hint_tag_is_error(tag_name):
     if severity == "error":
         return True
     return False
+
+__all__.append('hint_tag_is_error')

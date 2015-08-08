@@ -36,6 +36,7 @@ from dep11.component import DEP11Component, get_dep11_header, dict_to_dep11_yaml
 from dep11.iconfinder import ContentsListIconFinder
 from dep11.utils import read_packages_dict_from_file
 from dep11.hints import get_hint_tag_info
+from dep11.validate import DEP11Validator
 
 try:
     import pygments
@@ -680,7 +681,7 @@ class HTMLGenerator:
 
                             # try to find an icon for this component (if it's a GUI app)
                             icon_url = None
-                            if mdata['Type'] == 'desktop-app':
+                            if mdata['Type'] == 'desktop-app' or mdata['Type'] == "web-app":
                                 icon_name = mdata['Icon'].get("cached")
                                 if icon_name:
                                     icon_fname = os.path.join(component, get_pkg_id(pkg_name, pkg['version'], pkg['arch']), "icons", "64x64", icon_name)
@@ -737,6 +738,19 @@ class HTMLGenerator:
                     self.render_template("metainfo_page.html", export_dir_metainfo, "%s.html" % (pkg_name),
                             package_name=pkg_name, cpts=cptlist, suite=suite_name, section=component)
 
+
+                validate_result="Validation was not performed."
+                if dep11_data:
+                    # do format validation
+                    validator = DEP11Validator()
+                    ret = validator.validate_file(d_fname)
+                    if ret:
+                        validate_result="No errors found."
+                    else:
+                        validate_result=""
+                        for issue in validator.issue_list:
+                            validate_result += issue.replace("FATAL", "<strong>FATAL</strong>")+"<br/>\n"
+
                 # sum up counts for suite statistics
                 suite_metainfo_count += metainfo_count
                 suite_error_count += error_count
@@ -755,7 +769,7 @@ class HTMLGenerator:
                             suite=suite_name, section=component, valid_percentage=valid_perc,
                             error_percentage=error_perc, warning_percentage=warning_perc, info_percentage=info_perc,
                             metainfo_count=metainfo_count, error_count=error_count, warning_count=warning_count,
-                            info_count=info_count)
+                            info_count=info_count, validate_result=validate_result)
 
                 # Now render our issue index page
                 self.render_template("issues_index.html", export_dir_issues, "index.html",

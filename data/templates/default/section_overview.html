@@ -17,8 +17,9 @@
 
 
     <h2>Health</h2>
-
     <div class="wrapper">
+
+      <h3>Issue overview</h3>
       <div class="progress">
         <div style="width: {{valid_percentage}}%" class="progress-bar progress-bar-green">
           <span class="sr-only">{{valid_percentage}}% Valid</span>
@@ -40,6 +41,11 @@
         <li>{{warning_count}} warnings</li>
         <li>{{info_count}} infos/hints</li>
       </ul>
+
+      <h3>Global data validation result</h3>
+      <div class="well">
+        {{validate_result}}
+      </div>
     </div>
 
 {% endblock %}
