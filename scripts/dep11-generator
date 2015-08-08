@@ -577,6 +577,9 @@ class HTMLGenerator:
                 info_count = 0
                 metainfo_count = 0
 
+                hint_pages = dict()
+                cpt_pages = dict()
+
                 for arch in suite['architectures']:
                     h_fname = os.path.join(dep11_hintsdir, suite_name, component, "DEP11Hints_%s.yml.gz" % (arch))
                     hints_data = None
@@ -595,7 +598,6 @@ class HTMLGenerator:
                     pkg_index = read_packages_dict_from_file(self._archive_root, suite_name, component, arch)
 
                     if hints_data:
-                        hint_pages = dict()
                         for hint in hints_data:
                             pkg_name = hint['Package']
                             pkg_id = hint.get('PackageID')
@@ -657,13 +659,7 @@ class HTMLGenerator:
                                 # add info for global index
                                 issue_summaries[maintainer][pkg_name] = {'error_count': len(errors), 'warning_count': len(warnings), 'info_count': len(infos), 'archs': [arch]}
 
-                        # now write the HTML pages with the previously collected & transformed issue data
-                        for pkg_name, entry_list in hint_pages.items():
-                            # render issues page
-                            self.render_template("issues_page.html", export_dir_issues, "%s.html" % (pkg_name),
-                                    package_name=pkg_name, entries=entry_list, suite=suite_name, section=component)
                     if dep11_data:
-                        cpt_pages = dict()
                         for mdata in dep11_data:
                             pkg_name = mdata.get('Packages')
                             if not pkg_name:
@@ -725,14 +721,21 @@ class HTMLGenerator:
 
                             mdata_summaries[maintainer][pkg_name] = pksum
 
-                        # render page with all components in a package
-                        for pkg_name, cptlist in cpt_pages.items():
-                            # render metainfo page
-                            self.render_template("metainfo_page.html", export_dir_metainfo, "%s.html" % (pkg_name),
-                                    package_name=pkg_name, cpts=cptlist, suite=suite_name, section=component)
-
                     if not dep11_data and not hints_data:
                         log.warning("Suite %s/%s/%s does not contain DEP-11 data or issue hints.", suite_name, component, arch)
+
+
+                # now write the HTML pages with the previously collected & transformed issue data
+                for pkg_name, entry_list in hint_pages.items():
+                    # render issues page
+                    self.render_template("issues_page.html", export_dir_issues, "%s.html" % (pkg_name),
+                            package_name=pkg_name, entries=entry_list, suite=suite_name, section=component)
+
+                # render page with all components found in a package
+                for pkg_name, cptlist in cpt_pages.items():
+                    # render metainfo page
+                    self.render_template("metainfo_page.html", export_dir_metainfo, "%s.html" % (pkg_name),
+                            package_name=pkg_name, cpts=cptlist, suite=suite_name, section=component)
 
                 # sum up counts for suite statistics
                 suite_metainfo_count += metainfo_count
