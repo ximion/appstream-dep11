@@ -172,6 +172,10 @@ def load_generator_config(wdir):
         print("Config is missing information about suites!")
         return None
 
+    if not conf.get("AssetsUrl"):
+        print("You need to specify an URL where additional data (like screenshots) can be downloaded.")
+        return None
+
     return conf
 
 
@@ -185,10 +189,6 @@ class DEP11Generator:
 
         conf = load_generator_config(dep11_dir)
         if not conf:
-            return False
-
-        if not conf.get("AssetsUrl"):
-            print("You need to specify an URL where additional data (like screenshots) can be downloaded.")
             return False
 
         self._dep11_url = conf.get("AssetsUrl")
@@ -488,6 +488,8 @@ class HTMLGenerator:
 
         self._html_export_dir = os.path.join(self._export_dir, "html")
 
+        self._dep11_url = conf.get("AssetsUrl")
+
         os.chdir(dep11_dir)
         return True
 
@@ -547,6 +549,9 @@ class HTMLGenerator:
             return
 
         export_dir = self._html_export_dir
+        assets_dir = os.path.join(self._export_dir, "assets")
+        noimage_url = os.path.join(self._html_url, "static", "img", "no-image.png")
+
         # Render archive suites index page
         self.render_template("suites_index.html", export_dir, "index.html", suites=self._suites_data.keys())
 
@@ -677,11 +682,26 @@ class HTMLGenerator:
                             mdata_yml = dict_to_dep11_yaml(mdata)
                             mdata_yml = self._highlight_yaml(mdata_yml)
 
+                            # try to find an icon for this component (if it's a GUI app)
+                            icon_url = None
+                            if mdata['Type'] == 'desktop-app':
+                                icon_name = mdata['Icon'].get("cached")
+                                if icon_name:
+                                    icon_fname = os.path.join(component, get_pkg_id(pkg_name, pkg['version'], pkg['arch']), "icons", "64x64", icon_name)
+                                    if os.path.isfile(os.path.join(assets_dir, icon_fname)):
+                                        icon_url = os.path.join(self._dep11_url, icon_fname)
+                                    else:
+                                        icon_url = noimage_url
+                                else:
+                                    icon_url = noimage_url
+                            else:
+                                icon_url = os.path.join(self._html_url, "static", "img", "cpt-nogui.png")
+
                             if not cpt_pages.get(pkg_name):
                                 cpt_pages[pkg_name] = list()
 
                             cid = mdata.get('ID')
-                            page_data = {'cid': cid, 'mdata': mdata_yml, 'archs': [arch]}
+                            page_data = {'cid': cid, 'mdata': mdata_yml, 'icon_url': icon_url, 'archs': [arch]}
                             try:
                                 l = cpt_pages[pkg_name]
                                 index = next(i for i, v in enumerate(l) if equal_dicts(v, page_data, 'archs'))

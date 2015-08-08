@@ -15,7 +15,6 @@
     <h1>DEP-11 metadata for {{package_name}} in {{suite}}</h1>
 
     <div class="wrapper">
-
       {% for cpt in cpts %}
       <h2>
         {{cpt.cid}}
@@ -23,6 +22,11 @@
           <span style="font-size:12px;" class="label label-neutral">⚙ {{arch}}</span>
         {% endfor %}
       </h2>
+
+      <div style="float: right; padding: 6px;">
+        <img src="{{cpt.icon_url}}" alt="Icon" />
+      </div>
+
       <div class="well">
         {{cpt.mdata}}
       </div>
