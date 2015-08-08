@@ -58,11 +58,13 @@ def dict_to_dep11_yaml(d):
                     explicit_end=False, width=100, indent=2,
                     allow_unicode=True)
 
+
 class IconSize:
     '''
     A simple type representing an icon size
     '''
     size = int()
+
 
     def __init__(self, size):
         if isinstance(size, str):
@@ -70,17 +72,32 @@ class IconSize:
         else:
             self.size = size
 
+
     def __str__(self):
         return "%ix%i" % (self.size, self.size)
 
+
     def __int__(self):
         return self.size
+
 
     def set_from_string(self, s):
         wd, ht = s.split('x')
         if int(wd) != int(ht):
             log.warning("Processing asymetric icon.")
         self.size = int(wd)
+
+
+    def __eq__(self, other):
+        if type(other) is str:
+            return str(self) == other
+        if type(other) is IconSize:
+            return self.size == other.size
+        return self.size == other
+
+
+    def __hash__(self):
+        return self.size
 
 
 class ProvidedItemType:

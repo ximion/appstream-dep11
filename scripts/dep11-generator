@@ -739,15 +739,15 @@ class HTMLGenerator:
                             package_name=pkg_name, cpts=cptlist, suite=suite_name, section=component)
 
 
-                validate_result="Validation was not performed."
+                validate_result = "Validation was not performed."
                 if dep11_data:
                     # do format validation
                     validator = DEP11Validator()
                     ret = validator.validate_file(d_fname)
                     if ret:
-                        validate_result="No errors found."
+                        validate_result = "No errors found."
                     else:
-                        validate_result=""
+                        validate_result = ""
                         for issue in validator.issue_list:
                             validate_result += issue.replace("FATAL", "<strong>FATAL</strong>")+"<br/>\n"
 

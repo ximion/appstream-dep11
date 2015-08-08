@@ -21,6 +21,7 @@ import re
 from dep11.component import IconSize
 from dep11.utils import read_packages_dict_from_file
 
+
 class AbstractIconFinder:
     '''
     An icon-finder finds an icon in the archive, if it has not yet
@@ -32,8 +33,10 @@ class AbstractIconFinder:
     def __init__(self, suite_name, archive_component):
         pass
 
+
     def find_icons(self, pkgname, icon_str, icon_sizes):
         return None
+
 
     def set_allowed_icon_extensions(self, exts):
         pass
@@ -44,6 +47,7 @@ def _decode_contents_line(line):
         return str(line, 'utf-8')
     except:
         return str(line, 'iso-8859-1')
+
 
 class ContentsListIconFinder(AbstractIconFinder):
     '''
@@ -92,6 +96,7 @@ class ContentsListIconFinder(AbstractIconFinder):
         if not self._packages_dict:
             self._packages_dict = read_packages_dict_from_file(archive_mirror_dir, suite_name, archive_component, arch_name)
 
+
     def _query_icon(self, size, icon):
         '''
         Find icon files in the archive which match a size.
@@ -131,6 +136,7 @@ class ContentsListIconFinder(AbstractIconFinder):
 
         return None
 
+
     def find_icons(self, package, icon, sizes):
         '''
         Tries to find the best possible icon available
@@ -147,6 +153,7 @@ class ContentsListIconFinder(AbstractIconFinder):
             # we assume "64x64" as size here, and resize the vector
             # graphic later.
             flist = self._query_icon("scalable", icon)
+
             if flist:
                 size_map_flist[IconSize(64)] = flist
             else:
@@ -163,6 +170,7 @@ class ContentsListIconFinder(AbstractIconFinder):
                         size_map_flist[IconSize(64)] = flist
 
         return size_map_flist
+
 
     def set_allowed_icon_extensions(self, exts):
         self._allowed_exts = exts
