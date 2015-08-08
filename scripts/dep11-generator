@@ -550,13 +550,15 @@ class HTMLGenerator:
         # Render archive suites index page
         self.render_template("suites_index.html", export_dir, "index.html", suites=self._suites_data.keys())
 
-        # FIXME: Remove old HTML files
+        # TODO: Remove old HTML files
         for suite_name in self._suites_data:
             suite = self._suites_data[suite_name]
             export_dir = os.path.join(self._export_dir, "html", suite_name)
-            # Render archive components index page
-            self.render_template("sections_index.html", export_dir, "index.html",
-                            sections=suite['components'], suite=suite_name)
+
+            suite_error_count = 0
+            suite_warning_count = 0
+            suite_info_count = 0
+            suite_metainfo_count = 0
 
             for component in suite['components']:
                 issue_summaries = dict()
@@ -564,6 +566,11 @@ class HTMLGenerator:
                 export_dir_section = os.path.join(self._export_dir, "html", suite_name, component)
                 export_dir_issues = os.path.join(export_dir_section, "issues")
                 export_dir_metainfo = os.path.join(export_dir_section, "metainfo")
+
+                error_count = 0
+                warning_count = 0
+                info_count = 0
+                metainfo_count = 0
 
                 for arch in suite['architectures']:
                     h_fname = os.path.join(dep11_hintsdir, suite_name, component, "DEP11Hints_%s.yml.gz" % (arch))
@@ -633,12 +640,17 @@ class HTMLGenerator:
                             try:
                                 l = hint_pages[pkg_name]
                                 index = next(i for i, v in enumerate(l) if equal_dicts(v, page_data, 'archs'))
-                                l[index]['archs'].append(arch)
+                                hint_pages[pkg_name][index]['archs'].append(arch)
                             except StopIteration:
                                 hint_pages[pkg_name].append(page_data)
 
+                                # add info to global issue count
+                                error_count += len(errors)
+                                warning_count += len(warnings)
+                                info_count += len(infos)
+
                                 # add info for global index
-                                issue_summaries[maintainer][pkg_name] = {'errors_count': len(errors), 'warnings_count': len(warnings), 'infos_count': len(infos), 'archs': [arch]}
+                                issue_summaries[maintainer][pkg_name] = {'error_count': len(errors), 'warning_count': len(warnings), 'info_count': len(infos), 'archs': [arch]}
 
                         # now write the HTML pages with the previously collected & transformed issue data
                         for pkg_name, entry_list in hint_pages.items():
@@ -673,9 +685,12 @@ class HTMLGenerator:
                             try:
                                 l = cpt_pages[pkg_name]
                                 index = next(i for i, v in enumerate(l) if equal_dicts(v, page_data, 'archs'))
-                                l[index]['archs'].append(arch)
+                                cpt_pages[pkg_name][index]['archs'].append(arch)
                             except StopIteration:
                                 cpt_pages[pkg_name].append(page_data)
+
+                                # increase valid metainfo count
+                                metainfo_count += 1
 
                             # check if we had this package, and add to summary
                             pksum = mdata_summaries[maintainer].get(pkg_name)
@@ -699,9 +714,25 @@ class HTMLGenerator:
                     if not dep11_data and not hints_data:
                         log.warning("Suite %s/%s/%s does not contain DEP-11 data or issue hints.", suite_name, component, arch)
 
+                # sum up counts for suite statistics
+                suite_metainfo_count += metainfo_count
+                suite_error_count += error_count
+                suite_warning_count += warning_count
+                suite_info_count += info_count
+
+                # calculate statistics for this component
+                count = metainfo_count + error_count + warning_count + info_count
+                valid_perc = 100/count*metainfo_count if count > 0 else 0
+                error_perc = 100/count*error_count if count > 0 else 0
+                warning_perc = 100/count*warning_count if count > 0 else 0
+                info_perc = 100/count*info_count if count > 0 else 0
+
                 # Render our overview page
                 self.render_template("section_overview.html", export_dir_section, "index.html",
-                            suite=suite_name, section=component)
+                            suite=suite_name, section=component, valid_percentage=valid_perc,
+                            error_percentage=error_perc, warning_percentage=warning_perc, info_percentage=info_perc,
+                            metainfo_count=metainfo_count, error_count=error_count, warning_count=warning_count,
+                            info_count=info_count)
 
                 # Now render our issue index page
                 self.render_template("issues_index.html", export_dir_issues, "index.html",
@@ -710,6 +741,20 @@ class HTMLGenerator:
                 # ... and the metainfo index page
                 self.render_template("metainfo_index.html", export_dir_metainfo, "index.html",
                             package_summaries=mdata_summaries, suite=suite_name, section=component)
+
+            # calculate statistics for this suite
+            count = suite_metainfo_count + suite_error_count + suite_warning_count + suite_info_count
+            valid_perc = 100/count*suite_metainfo_count if count > 0 else 0
+            error_perc = 100/count*suite_error_count if count > 0 else 0
+            warning_perc = 100/count*suite_warning_count if count > 0 else 0
+            info_perc = 100/count*suite_info_count if count > 0 else 0
+
+            # Render archive components index/overview page
+            self.render_template("sections_index.html", export_dir, "index.html",
+                            sections=suite['components'], suite=suite_name, valid_percentage=valid_perc,
+                            error_percentage=error_perc, warning_percentage=warning_perc, info_percentage=info_perc,
+                            metainfo_count=suite_metainfo_count, error_count=suite_error_count, warning_count=suite_warning_count,
+                            info_count=suite_info_count)
 
         # Copy the static files
         target_static_dir = os.path.join(self._export_dir, "html", "static")

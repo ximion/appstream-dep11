@@ -9,10 +9,38 @@
 {% block content %}
     <h1>Overview for {{section}}</h1>
 
+    <h2>Data</h2>
 
-    <h3><a href="issues/index.html">Issues</a></h3>
+    <h3><a href="issues/index.html">Issues</a> - Issues found while extracting the data</h3>
 
-    <h3><a href="metainfo/index.html">Metainfo</a></h3>
+    <h3><a href="metainfo/index.html">Metainfo</a> - Per-package view of the generated data</h3>
+
+
+    <h2>Health</h2>
+
+    <div class="wrapper">
+      <div class="progress">
+        <div style="width: {{valid_percentage}}%" class="progress-bar progress-bar-green">
+          <span class="sr-only">{{valid_percentage}}% Valid</span>
+        </div>
+        <div style="width: {{info_percentage}}%" class="progress-bar progress-bar-blue">
+          <span class="sr-only">{{info_percentage}}% Infos</span>
+        </div>
+        <div style="width: {{warning_percentage}}%" class="progress-bar progress-bar-yellow">
+          <span class="sr-only">{{warning_percentage}}% Warnings</span>
+        </div>
+        <div style="width: {{error_percentage}}%" class="progress-bar progress-bar-red">
+          <span class="sr-only">{{error_percentage}}% Errors</span>
+        </div>
+      </div>
+
+      <ul>
+        <li>{{metainfo_count}} valid components</li>
+        <li>{{error_count}} errors</li>
+        <li>{{warning_count}} warnings</li>
+        <li>{{info_count}} infos/hints</li>
+      </ul>
+    </div>
 
 {% endblock %}
 
