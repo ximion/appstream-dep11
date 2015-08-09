@@ -87,7 +87,7 @@ screenshot-download-error:
 
 screenshot-read-error:
   text: >
-        Error while reading screenshot data for '%(screenshot_name)s' of component '%(cpt_id)s': %(error)s<br/>
+        Error while reading screenshot data for '%(url)s' of component '%(cpt_id)s': %(error)s<br/>
         Maybe the server returned an invalid image (e.g. an error page), or the image data is broken.
   severity: warning
 

@@ -177,8 +177,11 @@ class MetadataExtractor:
                 shot['source-image']['url'] = os.path.join(base_url, "source", "screenshot-%s.png" % (str(cnt)))
                 img.close()
             except Exception as e:
-                sname = "screenshot-%is.png" % (cnt)
-                cpt.add_hint("screenshot-read-error", {'screenshot_name': sname, 'cpt_id': cpt.cid, 'error': str(e)})
+                error_msg = str(e)
+                # filter out the absolute path: we shouldn't add it
+                if error_msg:
+                    error_msg = error_msg.replace(os.path.dirname(imgsrc), "")
+                cpt.add_hint("screenshot-read-error", {'url': origin_url, 'cpt_id': cpt.cid, 'error': error_msg})
                 success = False
                 continue
 
