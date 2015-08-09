@@ -201,6 +201,11 @@ class DEP11Validator:
 
         for doc in docs:
             docid = doc.get('ID')
+            pkgname = doc.get('Packages')
+            if pkgname:
+                pkgname = pkgname[0]
+            else:
+                pkgname = "?unknown?"
             if not doc:
                 self.add_issue("FATAL: Empty document found.")
                 ret = False
@@ -210,11 +215,11 @@ class DEP11Validator:
                 ret = False
                 continue
             if ids_found.get(docid):
-                self.add_issue("FATAL: Found two components with the same ID: %s." % (docid))
+                self.add_issue("FATAL: Found two components with the same ID: %s (in packages %s and %s)." % (docid, ids_found[docid], pkgname))
                 ret = False
                 continue
             else:
-                ids_found[docid] = True
+                ids_found[docid] = pkgname
             try:
                 schema_component(doc)
             except Exception as e:
