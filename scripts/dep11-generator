@@ -638,11 +638,11 @@ class HTMLGenerator:
                             if "_" in pkg_id:
                                 pkid_noarch = pkg_id[:pkg_id.rfind("_")]
 
-                            page_data = {'package_id': pkid_noarch, 'errors': errors, 'warnings': warnings, 'infos': infos, 'archs': [pkg['arch']]}
+                            page_data = {'package_id': pkid_noarch, 'errors': errors, 'warnings': warnings, 'infos': infos, 'archs': [arch]}
                             try:
                                 l = hint_pages[pkg_name]
                                 index = next(i for i, v in enumerate(l) if equal_dicts(v, page_data, ['archs']))
-                                hint_pages[pkg_name][index]['archs'].append(pkg['arch'])
+                                hint_pages[pkg_name][index]['archs'].append(arch)
                             except StopIteration:
                                 hint_pages[pkg_name].append(page_data)
 
@@ -693,11 +693,11 @@ class HTMLGenerator:
                                 cpt_pages[pkg_name] = list()
 
                             cid = mdata.get('ID')
-                            page_data = {'cid': cid, 'mdata': mdata_yml, 'icon_url': icon_url, 'archs': [pkg['arch']]}
+                            page_data = {'cid': cid, 'mdata': mdata_yml, 'icon_url': icon_url, 'archs': [arch]}
                             try:
                                 l = cpt_pages[pkg_name]
                                 index = next(i for i, v in enumerate(l) if equal_dicts(v, page_data, ['archs', 'icon_url']))
-                                cpt_pages[pkg_name][index]['archs'].append(pkg['arch'])
+                                cpt_pages[pkg_name][index]['archs'].append(arch)
                             except StopIteration:
                                 cpt_pages[pkg_name].append(page_data)
 
