@@ -1,3 +1,44 @@
+Version 0.2.0
+~~~~~~~~~~~~~~
+Released: 2015-08-10
+
+Features:
+ * Add very cheap backlink to pages
+ * DataUrl is actually an AssetsUrl
+ * Add small how-to to README
+ * generator: Configure logging
+ * Find Contents file in Ubuntu archive layout
+ * Handle contents files in iso-8859-1 encoding
+ * Explicitly write hints HTML in UTF-8
+ * Make IconFinder find icons in Oxygen theme
+ * Add function to allow reprocessing of packages
+ * Refactor issue reporting
+ * Completely get rid of hardcoded severities
+ * Add a few more hacks to find more icons and bundle them correctly
+ * Special-case the Adwaita theme as well, when searching for icons
+ * Make gui-app-without-icon tag more useful
+ * Add found metadata to the HTML as well
+ * Show architecture in metainfo HTML
+ * html: Display some pretty statistics
+ * Include icon in metadata overview
+ * Show global validation result in HTML
+ * When finding ID collisions, display which packages are involved
+ * Make screenshot-read-error hint more useful
+ * Mention optional dependency on Pygments
+
+Bugfixes:
+ * Make html pages find their static content easier
+ * Do not accidentally extract invalid icon sizes
+ * Expire asset-cache when removing processed components as well
+ * Remove epoch from package-ids
+ * Get rid of binid
+ * Explicitly set HTTP request timeout
+ * Fix a couple of icon detection and storage bugs
+ * html: Nobody needs to be informed about the update date twice
+ * Do not excess-cleanup the whole cache
+ * Fix dbus provides type element
+ * html: Correctly fold same issues into one view
+
 Version 0.1.0
 ~~~~~~~~~~~~~~
 Released: 2015-07-10
