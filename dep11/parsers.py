@@ -294,6 +294,8 @@ def read_appstream_upstream_xml(cpt, xml_content):
                         cpt.provides[ProvidedItemType.DBUS] = list()
 
                     bus_kind = bins.attrib.get('type')
+                    if bus_kind == "session":
+                        bus_kind = "user"
                     if bus_kind:
                         cpt.provides[ProvidedItemType.DBUS].append({'type': bus_kind, 'service': bins.text})
                 if bins.tag == 'firmware':
