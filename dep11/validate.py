@@ -26,11 +26,17 @@ schema_header = Schema({
     Required('File'): All(str, 'DEP-11', msg="Must be \"DEP-11\""),
     Required('Origin'): All(str, Length(min=1)),
     Required('Version'): All(str, Match(r'(\d+\.?)+$'), msg="Must be a valid version number"),
+    Required('AssetsUrl'): All(str, Url()),
 })
 
 schema_provides_dbus = Schema({
     Required('type'): All(str, Length(min=1)),
     Required('service'): All(str, Length(min=1)),
+})
+
+schema_provides_firmware = Schema({
+    Required('type'): All(str, Length(min=1)),
+    Any('guid', 'fname'): All(str, Length(min=1))
 })
 
 schema_provides = Schema({
@@ -39,10 +45,10 @@ schema_provides = Schema({
         'libraries',
         'python3',
         'python2',
-        'firmware',
         'modaliases',
         'fonts'): All(list, [str], Length(min=1)),
         'dbus': All(list, Length(min=1), [schema_provides_dbus]),
+        'firmware': All(list, Length(min=1), [schema_provides_firmware]),
 })
 
 schema_keywords = Schema({
@@ -87,7 +93,7 @@ schema_component = Schema({
     Required('Type'): All(str, Any('generic', 'desktop-app', 'web-app', 'addon', 'codec', 'inputmethod', 'font')),
     Required('ID'): All(str, Length(min=1)),
     Required('Name'): All(dict, Length(min=1), schema_translated),
-    Required('Packages'): All(list, [str], Length(min=1)),
+    Required('Package'): All(str, Length(min=1)),
     'Summary': All(dict, {str: str}, Length(min=1), schema_translated),
     'Description': All(dict, {str: str}, Length(min=1), schema_translated),
     'Categories': All(list, [str], Length(min=1)),
@@ -201,10 +207,8 @@ class DEP11Validator:
 
         for doc in docs:
             docid = doc.get('ID')
-            pkgname = doc.get('Packages')
-            if pkgname:
-                pkgname = pkgname[0]
-            else:
+            pkgname = doc.get('Package')
+            if not pkgname:
                 pkgname = "?unknown?"
             if not doc:
                 self.add_issue("FATAL: Empty document found.")
