@@ -398,14 +398,19 @@ class DEP11Component:
         if not self.has_ignore_reason():
             if not self.cid:
                 self.add_hint("metainfo-no-id")
+                self.ignore = True
             if not self.kind:
                 self.add_hint("metainfo-no-type")
+                self.ignore = True
             if not self.name:
                 self.add_hint("metainfo-no-name")
+                self.ignore = True
             if not self._pkg:
                 self.add_hint("metainfo-no-package")
+                self.ignore = True
             if not self.summary:
                 self.add_hint("metainfo-no-summary")
+                self.ignore = True
 
         d = dict()
         d['Packages'] = [self._pkg]
