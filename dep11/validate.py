@@ -26,7 +26,7 @@ schema_header = Schema({
     Required('File'): All(str, 'DEP-11', msg="Must be \"DEP-11\""),
     Required('Origin'): All(str, Length(min=1)),
     Required('Version'): All(str, Match(r'(\d+\.?)+$'), msg="Must be a valid version number"),
-    Required('AssetsUrl'): All(str, Url()),
+    Required('MediaBaseUrl'): All(str, Url()),
 })
 
 schema_provides_dbus = Schema({

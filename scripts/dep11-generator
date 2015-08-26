@@ -173,7 +173,7 @@ def load_generator_config(wdir):
         print("Config is missing information about suites!")
         return None
 
-    if not conf.get("AssetsUrl"):
+    if not conf.get("MediaBaseUrl"):
         print("You need to specify an URL where additional data (like screenshots) can be downloaded.")
         return None
 
@@ -192,7 +192,7 @@ class DEP11Generator:
         if not conf:
             return False
 
-        self._dep11_url = conf.get("AssetsUrl")
+        self._dep11_url = conf.get("MediaBaseUrl")
         self._icon_sizes = conf.get("IconSizes")
         if not self._icon_sizes:
             self._icon_sizes = ["128x128", "64x64"]
@@ -232,11 +232,11 @@ class DEP11Generator:
         return True
 
 
-    def _get_asset_dir(self):
-        asset_dir = os.path.join(self._export_dir, "assets")
-        if not os.path.exists(asset_dir):
-            os.makedirs(asset_dir)
-        return asset_dir
+    def _get_media_dir(self):
+        mdir = os.path.join(self._export_dir, "media")
+        if not os.path.exists(mdir):
+            os.makedirs(mdir)
+        return mdir
 
 
     def _get_packages_for(self, suite, component, arch):
@@ -247,9 +247,9 @@ class DEP11Generator:
         '''
          Generate icons-%(size).tar.gz
         '''
-        dep11_assetdir = self._get_asset_dir()
+        dep11_mediadir = self._get_media_dir()
         names_seen = set()
-        tar_location = os.path.join(self._export_dir, "dep11", suitename, component)
+        tar_location = os.path.join(self._export_dir, "data", suitename, component)
 
         size_tars = dict()
 
@@ -262,7 +262,7 @@ class DEP11Generator:
                 continue
 
             for size in self._icon_sizes:
-                icon_location_glob = os.path.join (dep11_assetdir, component, pkid, "icons", size, "*.*")
+                icon_location_glob = os.path.join (dep11_mediadir, component, pkid, "icons", size, "*.*")
 
                 tar = None
                 if size not in size_tars:
@@ -283,9 +283,9 @@ class DEP11Generator:
             safe_move_file(tar.name, tar.name.replace(".new", ""))
 
 
-    def _expire_asset(self, pkid):
-        dep11_assetdir = self._get_asset_dir()
-        dirs = glob.glob(os.path.join(dep11_assetdir, "*", str(pkid)))
+    def _expire_media(self, pkid):
+        dep11_mediadir = self._get_media_dir()
+        dirs = glob.glob(os.path.join(dep11_mediadir, "*", str(pkid)))
         if dirs:
             shutil.rmtree(dirs[0])
             log.debug("Expired: %s" % (os.path.basename(dirs[0])))
@@ -301,7 +301,7 @@ class DEP11Generator:
             log.error("Suite '%s' not found!" % (suite_name))
             return False
 
-        dep11_assetdir = self._get_asset_dir()
+        dep11_mediadir = self._get_media_dir()
 
         # We need 'forkserver' as startup method to prevent deadlocks on join()
         # Something in the extractor is doing weird things, makes joining impossible
@@ -329,7 +329,7 @@ class DEP11Generator:
 
                 iconf = ContentsListIconFinder(suite_name, component, arch, self._archive_root)
                 mde = MetadataExtractor(suite_name, component,
-                                dep11_assetdir,
+                                dep11_mediadir,
                                 self._dep11_url,
                                 self._icon_sizes,
                                 iconf)
@@ -356,7 +356,7 @@ class DEP11Generator:
                 hints_dir = os.path.join(self._export_dir, "hints", suite_name, component)
                 if not os.path.exists(hints_dir):
                     os.makedirs(hints_dir)
-                dep11_dir = os.path.join(self._export_dir, "dep11", suite_name, component)
+                dep11_dir = os.path.join(self._export_dir, "data", suite_name, component)
                 if not os.path.exists(dep11_dir):
                     os.makedirs(dep11_dir)
 
@@ -410,14 +410,14 @@ class DEP11Generator:
             if pkid in pkgids:
                 continue
             self._db.remove(pkid)
-            self._expire_asset(pkid)
+            self._expire_media(pkid)
 
         for pkid in self._db_hints:
             pkid = str(pkid, 'utf-8')
             if pkid in pkgids:
                 continue
             self._db_hints.remove(pkid)
-            self._expire_asset(pkid)
+            self._expire_media(pkid)
 
 
     def remove_processed(self, suite_name):
@@ -446,7 +446,7 @@ class DEP11Generator:
 
                     self._db_hints.remove(pkid)
                     self._db.remove(pkid)
-                    self._expire_asset(pkid)
+                    self._expire_media(pkid)
 
 
 class HTMLGenerator:
@@ -463,7 +463,7 @@ class HTMLGenerator:
 
         self._archive_root = conf.get("ArchiveRoot")
 
-        self._html_url = conf.get("HtmlUrl")
+        self._html_url = conf.get("HtmlBaseUrl")
         if not self._html_url:
             self._html_url = "."
 
@@ -489,7 +489,7 @@ class HTMLGenerator:
 
         self._html_export_dir = os.path.join(self._export_dir, "html")
 
-        self._dep11_url = conf.get("AssetsUrl")
+        self._dep11_url = conf.get("MediaBaseUrl")
 
         os.chdir(dep11_dir)
         return True
@@ -545,12 +545,12 @@ class HTMLGenerator:
         dep11_hintsdir = os.path.join(self._export_dir, "hints")
         if not os.path.exists(dep11_hintsdir):
             return
-        dep11_minfodir = os.path.join(self._export_dir, "dep11")
+        dep11_minfodir = os.path.join(self._export_dir, "data")
         if not os.path.exists(dep11_minfodir):
             return
 
         export_dir = self._html_export_dir
-        assets_dir = os.path.join(self._export_dir, "assets")
+        media_dir = os.path.join(self._export_dir, "media")
         noimage_url = os.path.join(self._html_url, "static", "img", "no-image.png")
 
         # Render archive suites index page
@@ -680,7 +680,7 @@ class HTMLGenerator:
                                 icon_name = mdata['Icon'].get("cached")
                                 if icon_name:
                                     icon_fname = os.path.join(component, get_pkg_id(pkg_name, pkg['version'], pkg['arch']), "icons", "64x64", icon_name)
-                                    if os.path.isfile(os.path.join(assets_dir, icon_fname)):
+                                    if os.path.isfile(os.path.join(media_dir, icon_fname)):
                                         icon_url = os.path.join(self._dep11_url, icon_fname)
                                     else:
                                         icon_url = noimage_url
