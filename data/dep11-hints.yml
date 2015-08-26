@@ -103,10 +103,11 @@ metainfo-no-name:
 
 metainfo-no-package:
   text: Component has no package defined. A package must be associated with a component. This is likely a bug in the generator.
+  severity: error
 
 metainfo-no-summary:
   text: >
-        Component does not contain a short summary. Ensure that the component's metainfo file has a <code>summary</code> tag, or that its .desktop file
+        Component does not contain a short summary. Ensure that the components metainfo file has a <code>summary</code> tag, or that its .desktop file
         has a <code>Comment=</code> field set. Especially applications by KDE often use the <code>GenericName</code> field for a short summary,
         instead of the <code>Comment</code> field (which is not its intended use case).<br/>
         More information can be found in the <a href="http://standards.freedesktop.org/desktop-entry-spec/latest/ar01s05.html">Desktop Entry specification</a>.
