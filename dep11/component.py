@@ -433,7 +433,7 @@ class DEP11Component:
             self._check_translated()
 
         d = dict()
-        d['Packages'] = [self._pkg]
+        d['Package'] = str(self._pkg)
         if self.cid:
             d['ID'] = self.cid
         if self.kind:

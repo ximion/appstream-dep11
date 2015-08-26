@@ -299,9 +299,22 @@ def read_appstream_upstream_xml(cpt, xml_content):
                     if bus_kind:
                         cpt.provides[ProvidedItemType.DBUS].append({'type': bus_kind, 'service': bins.text})
                 if bins.tag == 'firmware':
-                    cpt.add_provided_item(
-                        ProvidedItemType.FIRMWARE, bins.text
-                    )
+                    if not cpt.provides.get(ProvidedItemType.FIRMWARE):
+                        cpt.provides[ProvidedItemType.FIRMWARE] = list()
+
+                    fw_type = bins.attrib.get('type')
+                    fw_data = {'type': fw_type}
+
+                    _valid = True
+                    if fw_type == "flashed":
+                        fw_data['guid'] = bins.text
+                    elif fw_type == "runtime"
+                        fw_data['fname'] = bins.text
+                    else:
+                        _valid = False
+
+                    if _valid:
+                        cpt.provides[ProvidedItemType.FIRMWARE].append(fw_data)
                 if bins.tag == 'python2':
                     cpt.add_provided_item(
                         ProvidedItemType.PYTHON_2, bins.text
