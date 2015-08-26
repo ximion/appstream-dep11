@@ -377,6 +377,29 @@ class DEP11Component:
         return d
 
 
+    def _check_translated(self):
+        '''
+        Ensure each localized field has a translation template ('C') set.
+        Some broken .desktop files do not properly set a template, and we don't want to return
+        broken DEP-11 YAML because of broken upstream metadata.
+        '''
+        def check_for_template(field, id_str):
+            if not field:
+                return
+            if not field.get('C'):
+                self.add_hint("metainfo-localized-field-without-template", {'field_id': id_str})
+
+        check_for_template(self.name, 'Name')
+        check_for_template(self.summary, 'Summary')
+        check_for_template(self.description, 'Description')
+        check_for_template(self.developer_name, 'DeveloperName')
+        if self.screenshots:
+            for i, shot in enumerate(self.screenshots):
+                caption = shot.get('caption')
+                if caption:
+                    check_for_template(self.developer_name, "Screenshots/%i/caption" % (i))
+
+
     def finalize_to_dict(self):
         '''
         Do sanity checks and finalization work, then serialize the component to
@@ -406,6 +429,8 @@ class DEP11Component:
                 self.add_hint("metainfo-no-package")
             if not self.summary:
                 self.add_hint("metainfo-no-summary")
+            # ensure translated elements have templates
+            self._check_translated()
 
         d = dict()
         d['Packages'] = [self._pkg]
