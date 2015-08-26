@@ -330,7 +330,6 @@ class DEP11Generator:
                 iconf = ContentsListIconFinder(suite_name, component, arch, self._archive_root)
                 mde = MetadataExtractor(suite_name, component,
                                 dep11_mediadir,
-                                self._dep11_url,
                                 self._icon_sizes,
                                 iconf)
 
@@ -367,7 +366,7 @@ class DEP11Generator:
                 hints_f = gzip.open(hints_fname+".new", 'wb')
                 data_f = gzip.open(data_fname+".new", 'wb')
 
-                dep11_header = get_dep11_header(suite_name, component)
+                dep11_header = get_dep11_header(suite_name, component, os.path.join(self._dep11_url, component))
                 data_f.write(bytes(dep11_header, 'utf-8'))
 
                 for pkg in pkglist:

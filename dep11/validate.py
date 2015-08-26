@@ -64,7 +64,7 @@ schema_translated = Schema({
 schema_image = Schema({
     Required('width'): All(int, Range(min=10)),
     Required('height'): All(int, Range(min=10)),
-    Required('url'): All(str, Url()),
+    Required('url'): All(str, str, Length(min=1)),
 })
 
 schema_screenshots = Schema({
@@ -78,7 +78,7 @@ schema_icon = Schema({
     'stock': All(str, Length(min=1)),
     'cached': All(str, Match(r'.*[.].*$'), msg='Icon entry is missing filename or extension'),
     'local': All(str, Match(r'^[\'"]?(?:/[^/]+)*[\'"]?$'), msg='Icon entry should be an absolute path'),
-    'remote': All(str, Url()),
+    'remote': All(str, str, Length(min=1)),
 })
 
 schema_url = Schema({

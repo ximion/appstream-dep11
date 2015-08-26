@@ -42,14 +42,13 @@ class MetadataExtractor:
     Takes a deb file and extracts component metadata from it.
     '''
 
-    def __init__(self, suite_name, component, export_dir, base_url, icon_sizes, icon_finder=None):
+    def __init__(self, suite_name, component, export_dir, icon_sizes, icon_finder=None):
         '''
         Initialize the object with List of files.
         '''
         self._suite_name = suite_name
         self._archive_component = component
         self._export_dir = export_dir
-        self._base_url = base_url
 
         self._icon_ext_allowed = ('.png', '.svg', '.xcf', '.gif', '.svgz', '.jpg')
 
@@ -430,8 +429,11 @@ class MetadataExtractor:
             if not idname:
                 idname = os.path.basename(pkg_fname)
             component_basepath = "%s/%s" % (self._archive_component, idname)
+            pkgid = idname
         export_path = "%s/%s" % (self._export_dir, component_basepath)
-        public_url = "%s/%s" % (self._base_url, component_basepath)
+        # the public url consists of the per-file MediaBaseUrl + this component, which is the
+        # component's idname + the remaining url parts.
+        public_url = pkgid
 
         component_dict = dict()
 

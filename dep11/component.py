@@ -44,9 +44,10 @@ class DEP11YamlDumper(yaml.Dumper):
         return super(DEP11YamlDumper, self).increase_indent(flow, False)
 
 
-def get_dep11_header(suite_name, component_name):
+def get_dep11_header(suite_name, component_name, base_url):
     head_dict = dep11_header_template
     head_dict['Origin'] = "%s-%s" % (suite_name, component_name)
+    head_dict['MediaBaseUrl'] = base_url
     return yaml.dump(head_dict, Dumper=DEP11YamlDumper,
                             default_flow_style=False, explicit_start=True,
                             explicit_end=False, width=200, indent=2)

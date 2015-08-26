@@ -308,7 +308,7 @@ def read_appstream_upstream_xml(cpt, xml_content):
                     _valid = True
                     if fw_type == "flashed":
                         fw_data['guid'] = bins.text
-                    elif fw_type == "runtime"
+                    elif fw_type == "runtime":
                         fw_data['fname'] = bins.text
                     else:
                         _valid = False
