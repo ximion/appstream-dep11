@@ -91,6 +91,12 @@ schema_url = Schema({
         'donation'): All(str, Url()),
 })
 
+schema_releases = Schema({
+    Required('unix-timestamp'): All(int),
+    Required('version'): All(str, Length(min=1)),
+    'description': All(dict, Length(min=1), schema_translated),
+})
+
 schema_component = Schema({
     Required('Type'): All(str, Any('generic', 'desktop-app', 'web-app', 'addon', 'codec', 'inputmethod', 'font')),
     Required('ID'): All(str, Length(min=1)),
@@ -109,6 +115,7 @@ schema_component = Schema({
     'DeveloperName': All(dict, Length(min=1), schema_translated),
     'Screenshots': All(list, Length(min=1), [schema_screenshots]),
     'Extends': All(list, [str], Length(min=1)),
+    'Releases': All(list, Length(min=1), [schema_releases]),
 })
 
 class DEP11Validator:
@@ -168,13 +175,13 @@ class DEP11Validator:
             ret = False
         return ret
 
-    def _validate_description(self, docid, desc):
+    def _validate_description(self, docid, desc, poshint="Description"):
         ret = True
         ET.register_namespace("xml", "http://www.w3.org/XML/1998/namespace")
         try:
             root = ET.fromstring("<root>%s</root>" % (desc))
         except Exception as e:
-            self.add_issue("[%s]: %s" % (docid, "Broken description markup found: %s @ data['Description']" % (str(e))))
+            self.add_issue("[%s]: %s" % (docid, "Broken description markup found: %s @ data['%s']" % (str(e), poshint)))
             return False
         for child in root:
             if not self._validate_description_tag(docid, child, ['p', 'ul', 'ol']):
@@ -256,7 +263,17 @@ class DEP11Validator:
             for shot in doc.get('Screenshots', list()):
                 caption = shot.get('caption')
                 if caption:
-                    if not self._test_localized_dict(doc, caption, "Screenshots.caption"):
+                    if not self._test_localized_dict(doc, caption, "Screenshots.x.caption"):
+                        ret = False
+
+            for rel in doc.get('Releases', list()):
+                desc = rel.get('description')
+                if not desc:
+                    continue
+                if not self._test_localized_dict(doc, desc, "Releases.x.description"):
+                    ret = False
+                for d in desc.values():
+                    if not self._validate_description(docid, d, "Releases.x.description"):
                         ret = False
 
             desc = doc.get('Description', dict())

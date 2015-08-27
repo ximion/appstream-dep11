@@ -656,7 +656,7 @@ class HTMLGenerator:
 
                     if dep11_data:
                         for mdata in dep11_data:
-                            pkg_name = mdata.get('Packages')
+                            pkg_name = mdata.get('Package')
                             if not pkg_name:
                                 # we probably hit the header
                                 continue
