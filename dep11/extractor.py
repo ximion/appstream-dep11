@@ -26,7 +26,6 @@ from io import BytesIO
 import zlib
 import cairo
 from gi.repository import Rsvg
-from tempfile import NamedTemporaryFile
 from PIL import Image
 import logging as log
 

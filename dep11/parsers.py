@@ -264,7 +264,7 @@ def _parse_releases_tag(relstag):
         rels.append(release)
 
     # sort releases, newest first
-    rels = sorted(rels, key=lambda k: k['unix-timestamp'])
+    rels = sorted(rels, key=lambda k: k['unix-timestamp'], reverse=True)
 
     if len(rels) > 3:
         return rels[:3]
