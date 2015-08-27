@@ -96,6 +96,15 @@ class IconSize:
             return self.size == other.size
         return self.size == other
 
+    def __lt__(self, other):
+        if type(other) is IconSize:
+            return self.size < other.size
+        return self.size < other
+
+    def __gt__(self, other):
+        if type(other) is IconSize:
+            return self.size > other.size
+        return self.size > other
 
     def __hash__(self):
         return self.size

@@ -219,6 +219,8 @@ class MetadataExtractor:
     def _store_icon(self, cpt, cpt_export_path, icon_path, deb_fname, size):
         '''
         Extracts the icon from the deb package and stores it in the cache.
+        Ensures the stored icon always has the size given in "size", and renders
+        vectorgraphics if necessary.
         '''
         svgicon = False
         if not self._icon_allowed(icon_path):
@@ -287,8 +289,8 @@ class MetadataExtractor:
 
         return False
 
-    def _match_and_store_icon(self, cpt, cpt_export_path, pkg_fname, filelist, icon_name, size):
-        success = False
+
+    def _match_icon_on_filelist(self, cpt, filelist, icon_name, size):
         if size == "scalable":
             size_str = "scalable"
         else:
@@ -296,14 +298,25 @@ class MetadataExtractor:
         icon_path = "usr/share/icons/hicolor/%s/*/%s" % (size_str, icon_name)
         filtered = fnmatch.filter(filelist, icon_path)
         if not filtered:
+            return None
+
+        return filtered[0]
+
+
+    def _match_and_store_icon(self, cpt, cpt_export_path, pkg_fname, filelist, icon_name, size):
+        success = False
+        matched_icon = self._match_icon_on_filelist(cpt, filelist, icon_name, size)
+        if not matched_icon:
             return False
+
         if not size in self._icon_sizes:
             # scale icons to allowed sizes
             for asize in self._icon_sizes:
-                success = self._store_icon(cpt, cpt_export_path, filtered[0], pkg_fname, asize) or success
+                success = self._store_icon(cpt, cpt_export_path, matched_icon, pkg_fname, asize) or success
         else:
-            success = self._store_icon(cpt, cpt_export_path, filtered[0], pkg_fname, size)
+            success = self._store_icon(cpt, cpt_export_path, matched_icon, pkg_fname, size)
         return success
+
 
     def _fetch_icon(self, cpt, cpt_export_path, pkg_fname, filelist):
         '''
@@ -330,8 +343,25 @@ class MetadataExtractor:
                 icon_name_ext = icon_str
             else:
                 icon_name_ext = icon_str + ".png"
+
+            found_sizes = list()
             for size in self._icon_sizes:
-                success = self._match_and_store_icon(cpt, cpt_export_path, pkg_fname, filelist, icon_name_ext, size) or success
+                ret = self._match_and_store_icon(cpt, cpt_export_path, pkg_fname, filelist, icon_name_ext, size)
+                if ret:
+                    found_sizes.append(size)
+                success = ret or success
+
+            # ensure if we've found an icon, that we also have a 64x64 sized icon
+            if success and not IconSize(64) in found_sizes:
+                success = False
+                for size in found_sizes:
+                    if size > IconSize(64):
+                        icon_fname = self._match_icon_on_filelist(cpt, filelist, icon_name_ext, size)
+                        if not icon_fname:
+                            break
+                        success = self._store_icon(cpt, cpt_export_path, pkg_fname, icon_fname, IconSize(64))
+                        break
+
             if not success:
                 # we cheat and test for larger icons as well, which can be scaled down
                 # first check for a scalable graphic
@@ -394,6 +424,7 @@ class MetadataExtractor:
             return False
 
         return True
+
 
     def process(self, pkgname, pkg_fname, pkgid=None, metainfo_files=None):
         '''
