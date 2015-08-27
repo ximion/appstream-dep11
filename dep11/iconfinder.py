@@ -107,7 +107,7 @@ class ContentsListIconFinder(AbstractIconFinder):
 
         valid = None
         if size:
-            valid = re.compile('^usr/share/icons/.*/' + size + '/.*' + icon + '[\.png|\.svg|\.svgz]')
+            valid = re.compile('^usr/share/icons/.*/' + size + '/apps/' + icon + '[\.png|\.svg|\.svgz]')
         else:
             valid = re.compile('^usr/share/pixmaps/' + icon + '.png')
 

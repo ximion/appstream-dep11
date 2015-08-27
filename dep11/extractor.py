@@ -295,7 +295,7 @@ class MetadataExtractor:
             size_str = "scalable"
         else:
             size_str = str(size)
-        icon_path = "usr/share/icons/hicolor/%s/*/%s" % (size_str, icon_name)
+        icon_path = "usr/share/icons/hicolor/%s/apps/%s" % (size_str, icon_name)
         filtered = fnmatch.filter(filelist, icon_path)
         if not filtered:
             return None
@@ -330,6 +330,9 @@ class MetadataExtractor:
         icon_str = cpt.icon
         cpt.icon = None
 
+        all_icon_sizes = self._icon_sizes[:]
+        all_icon_sizes.extend(self._large_icon_sizes)
+
         success = False
         if icon_str.startswith("/"):
             if icon_str[1:] in filelist:
@@ -351,16 +354,27 @@ class MetadataExtractor:
                     found_sizes.append(size)
                 success = ret or success
 
-            # ensure if we've found an icon, that we also have a 64x64 sized icon
+            # try if we can add missing icon sizes by scaling down things
+            # this also ensures that we also have an 64x64 sized icon
+            if set(found_sizes) != set(self._icon_sizes):
+                for size in self._icon_sizes:
+                    if size in found_sizes:
+                        continue
+                    for asize in all_icon_sizes:
+                        if asize < size:
+                            continue
+                        icon_fname = self._match_icon_on_filelist(cpt, filelist, icon_name_ext, asize)
+                        if not icon_fname:
+                            continue
+                        ret = self._store_icon(pkg_fname, cpt, cpt_export_path, icon_fname, size)
+                        if ret:
+                            found_sizes.append(size)
+                        success = ret or success
+                        break
+
+            # a 64x64 icon is required, so double-check if we have one
             if success and not IconSize(64) in found_sizes:
                 success = False
-                for size in found_sizes:
-                    if size > IconSize(64):
-                        icon_fname = self._match_icon_on_filelist(cpt, filelist, icon_name_ext, size)
-                        if not icon_fname:
-                            break
-                        success = self._store_icon(pkg_fname, cpt, cpt_export_path, icon_fname, IconSize(64))
-                        break
 
             if not success:
                 # we cheat and test for larger icons as well, which can be scaled down
@@ -391,8 +405,6 @@ class MetadataExtractor:
                 cpt.add_hint("icon-format-unsupported", {'icon_fname': os.path.basename(last_pixmap)})
                 return False
 
-            all_icon_sizes = self._icon_sizes[:]
-            all_icon_sizes.extend(self._large_icon_sizes)
             icon_dict = self._icon_finder.find_icons(cpt.pkgname, icon_str, all_icon_sizes)
             success = False
             if icon_dict:
@@ -410,7 +422,7 @@ class MetadataExtractor:
                         if not size in icon_dict:
                             continue
                         for asize in self._icon_sizes:
-                            success = self._store_icon(icon_dict[size]['deb_fname']
+                            success = self._store_icon(icon_dict[size]['deb_fname'],
                                         cpt,
                                         cpt_export_path,
                                         icon_dict[size]['icon_fname'],
@@ -481,7 +493,7 @@ class MetadataExtractor:
 
                 error = None
                 try:
-                    dcontent = str(deb.data.extractdata(meta_file).decode("utf-8"))
+                    dcontent = str(deb.data.extractdata(meta_file), 'utf-8')
                 except Exception as e:
                     error = {'tag': "deb-extract-error",
                                 'params': {'fname': cpt_id, 'pkg_fname': os.path.basename(pkg_fname), 'error': str(e)}}
@@ -497,7 +509,7 @@ class MetadataExtractor:
                 cpt = DEP11Component(self._suite_name, self._archive_component, pkgname, pkgid)
 
                 try:
-                    xml_content = str(deb.data.extractdata(meta_file).decode("utf-8"))
+                    xml_content = str(deb.data.extractdata(meta_file), 'utf-8')
                 except Exception as e:
                     # inability to read an AppStream XML file is a valid reason to skip the whole package
                     cpt.add_hint("deb-extract-error", {'fname': meta_file, 'pkg_fname': os.path.basename(pkg_fname), 'error': str(e)})
