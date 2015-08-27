@@ -216,7 +216,7 @@ class MetadataExtractor:
 
         img.write_to_png(store_path)
 
-    def _store_icon(self, cpt, cpt_export_path, icon_path, deb_fname, size):
+    def _store_icon(self, deb_fname, cpt, cpt_export_path, icon_path, size):
         '''
         Extracts the icon from the deb package and stores it in the cache.
         Ensures the stored icon always has the size given in "size", and renders
@@ -303,7 +303,7 @@ class MetadataExtractor:
         return filtered[0]
 
 
-    def _match_and_store_icon(self, cpt, cpt_export_path, pkg_fname, filelist, icon_name, size):
+    def _match_and_store_icon(self, pkg_fname, cpt, cpt_export_path, filelist, icon_name, size):
         success = False
         matched_icon = self._match_icon_on_filelist(cpt, filelist, icon_name, size)
         if not matched_icon:
@@ -312,9 +312,9 @@ class MetadataExtractor:
         if not size in self._icon_sizes:
             # scale icons to allowed sizes
             for asize in self._icon_sizes:
-                success = self._store_icon(cpt, cpt_export_path, matched_icon, pkg_fname, asize) or success
+                success = self._store_icon(pkg_fname, cpt, cpt_export_path, matched_icon, asize) or success
         else:
-            success = self._store_icon(cpt, cpt_export_path, matched_icon, pkg_fname, size)
+            success = self._store_icon(pkg_fname, cpt, cpt_export_path, matched_icon, size)
         return success
 
 
@@ -333,7 +333,7 @@ class MetadataExtractor:
         success = False
         if icon_str.startswith("/"):
             if icon_str[1:] in filelist:
-                return self._store_icon(cpt, cpt_export_path, icon_str[1:], pkg_fname, IconSize(64))
+                return self._store_icon(pkg_fname, cpt, cpt_export_path, icon_str[1:], IconSize(64))
         else:
             ret = False
             icon_str = os.path.basename (icon_str)
@@ -346,7 +346,7 @@ class MetadataExtractor:
 
             found_sizes = list()
             for size in self._icon_sizes:
-                ret = self._match_and_store_icon(cpt, cpt_export_path, pkg_fname, filelist, icon_name_ext, size)
+                ret = self._match_and_store_icon(pkg_fname, cpt, cpt_export_path, filelist, icon_name_ext, size)
                 if ret:
                     found_sizes.append(size)
                 success = ret or success
@@ -359,19 +359,19 @@ class MetadataExtractor:
                         icon_fname = self._match_icon_on_filelist(cpt, filelist, icon_name_ext, size)
                         if not icon_fname:
                             break
-                        success = self._store_icon(cpt, cpt_export_path, pkg_fname, icon_fname, IconSize(64))
+                        success = self._store_icon(pkg_fname, cpt, cpt_export_path, icon_fname, IconSize(64))
                         break
 
             if not success:
                 # we cheat and test for larger icons as well, which can be scaled down
                 # first check for a scalable graphic
-                success = self._match_and_store_icon(cpt, cpt_export_path, pkg_fname, filelist, icon_str + ".svg", "scalable")
+                success = self._match_and_store_icon(pkg_fname, cpt, cpt_export_path, filelist, icon_str + ".svg", "scalable")
                 if not success:
-                    success = self._match_and_store_icon(cpt, cpt_export_path, pkg_fname, filelist, icon_str + ".svgz", "scalable")
+                    success = self._match_and_store_icon(pkg_fname, cpt, cpt_export_path, filelist, icon_str + ".svgz", "scalable")
                 # then try to scale down larger graphics
                 if not success:
                     for size in self._large_icon_sizes:
-                        success = self._match_and_store_icon(cpt, cpt_export_path, pkg_fname, filelist, icon_name_ext, size) or success
+                        success = self._match_and_store_icon(pkg_fname, cpt, cpt_export_path, filelist, icon_name_ext, size) or success
 
         if not success:
             last_pixmap = None
@@ -383,7 +383,7 @@ class MetadataExtractor:
                         # the pixmap dir can contain icons in multiple formats, and store_icon() fails in case
                         # the icon format is not allowed. We therefore only exit here, if the icon has a valid format
                         if self._icon_allowed(path):
-                            return self._store_icon(cpt, cpt_export_path, path, pkg_fname, IconSize(64))
+                            return self._store_icon(pkg_fname, cpt, cpt_export_path, path, IconSize(64))
                         last_pixmap = path
             if last_pixmap:
                 # we don't do a global icon search anymore, since we've found an (unsuitable) icon
@@ -400,20 +400,20 @@ class MetadataExtractor:
                     if not size in icon_dict:
                         continue
 
-                    success = self._store_icon(cpt,
+                    success = self._store_icon(icon_dict[size]['deb_fname'],
+                                        cpt,
                                         cpt_export_path,
                                         icon_dict[size]['icon_fname'],
-                                        icon_dict[size]['deb_fname'],
                                         size) or success
                 if not success:
                     for size in self._large_icon_sizes:
                         if not size in icon_dict:
                             continue
                         for asize in self._icon_sizes:
-                            success = self._store_icon(cpt,
+                            success = self._store_icon(icon_dict[size]['deb_fname']
+                                        cpt,
                                         cpt_export_path,
                                         icon_dict[size]['icon_fname'],
-                                        icon_dict[size]['deb_fname'],
                                         asize) or success
                 return success
 
