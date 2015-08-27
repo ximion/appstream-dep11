@@ -27,6 +27,8 @@ schema_header = Schema({
     Required('Origin'): All(str, Length(min=1)),
     Required('Version'): All(str, Match(r'(\d+\.?)+$'), msg="Must be a valid version number"),
     Required('MediaBaseUrl'): All(str, Url()),
+    'Time': All(str, str),
+    'Priority': All(str, int),
 })
 
 schema_provides_dbus = Schema({

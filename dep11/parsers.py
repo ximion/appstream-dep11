@@ -123,6 +123,7 @@ def read_desktop_data(cpt, dcontent):
             cpt.icon = value
     return True
 
+
 def _get_tag_locale(subs):
     attr_dic = subs.attrib
     if attr_dic:
@@ -130,6 +131,7 @@ def _get_tag_locale(subs):
         if locale:
             return locale
     return "C"
+
 
 def _parse_description_tag(subs):
     '''
@@ -180,9 +182,10 @@ def _parse_description_tag(subs):
                 ddict[locale] += "<%s>%s</%s>" % (usubs.tag, value, usubs.tag)
     return ddict
 
+
 def _parse_screenshots_tag(subs):
     '''
-    Handles screenshots.Caption source-image etc.
+    Handles screenshots, caption, source-image etc.
     '''
     shots = []
     for usubs in subs:
@@ -224,6 +227,50 @@ def _parse_screenshots_tag(subs):
                 shots.append(screenshot)
 
     return shots
+
+
+def _parse_releases_tag(relstag):
+    '''
+    Parses a releases tag and returns the last three releases
+    '''
+    rels = list()
+    for subs in relstag:
+        # for one screeshot tag
+        if subs.tag != 'release':
+            continue
+
+        release = dict()
+        attr_dic = subs.attrib
+        if attr_dic.get('version'):
+            release['version'] = attr_dic['version']
+
+        if attr_dic.get('timestamp'):
+            try:
+                release['unix-timestamp'] = int(attr_dic['timestamp'])
+            except:
+                # the timestamp was wrong - we silently ignore the error
+                # TODO: Emit warning hint
+                continue
+        else:
+            # we can't use releases which don't have a timestamp
+            # TODO: Emit a warning hint here
+            continue
+
+        # else look for captions and image tag
+        for usubs in subs:
+            if usubs.tag == 'description':
+                release['description'] = _parse_description_tag(usubs)
+
+        rels.append(release)
+
+    # sort releases, newest first
+    rels = sorted(rels, key=lambda k: k['unix-timestamp'])
+
+    if len(rels) > 3:
+        return rels[:3]
+
+    return rels
+
 
 def read_appstream_upstream_xml(cpt, xml_content):
     '''
@@ -348,3 +395,7 @@ def read_appstream_upstream_xml(cpt, xml_content):
 
         elif subs.tag == "compulsory_for_desktop":
             cpt.compulsory_for_desktops.append(subs.text)
+
+        elif subs.tag == "releases":
+            releases = _parse_releases_tag(subs)
+            cpt.releases = releases

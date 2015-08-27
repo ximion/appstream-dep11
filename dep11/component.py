@@ -27,7 +27,7 @@ from dep11.hints import HintSeverity, hint_tag_is_error
 import logging as log
 
 ###########################################################################
-DEP11_VERSION = "0.6"
+DEP11_VERSION = "0.8"
 time_str = str(datetime.date.today())
 dep11_header_template = {
     "File": "DEP-11",
@@ -151,6 +151,8 @@ class DEP11Component:
         self._developer_name = dict()
         self._extends = list()
         self._compulsory_for_desktops = list()
+        self._releases = list()
+        self._languages = list()
 
 
     def add_hint(self, tag, params=dict()):
@@ -334,6 +336,14 @@ class DEP11Component:
     def extends(self, val):
         self._extends = val
 
+    @property
+    def releases(self):
+        return self._releases
+
+    @releases.setter
+    def releases(self, val):
+        self._releases = val
+
 
     def add_provided_item(self, kind, value):
         if kind not in self.provides.keys():
@@ -476,6 +486,8 @@ class DEP11Component:
             d['Extends'] = self.extends
         if self.compulsory_for_desktops:
             d['CompulsoryForDesktops'] = self.compulsory_for_desktops
+        if self.releases:
+            d['Releases'] = self.releases
         return d
 
 
