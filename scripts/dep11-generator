@@ -660,7 +660,6 @@ class HTMLGenerator:
                             if not pkg_name:
                                 # we probably hit the header
                                 continue
-                            pkg_name = pkg_name[0]
                             pkg = pkg_index.get(pkg_name)
                             maintainer = None
                             if pkg:
