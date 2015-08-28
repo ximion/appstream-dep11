@@ -95,14 +95,16 @@ class MetadataPool:
         '''
         Makes a list of all the DEP11Component objects in a arch pool
         '''
-        cpts = self._mcpts.get(arch)
+        pkid = get_pkg_id(pkgname, version, arch)
+
+        cpts = self._mcpts.get(pkid)
         if not cpts:
-            self._mcpts[arch] = list()
-            cpts = self._mcpts[arch]
-        for c in cptlist:
-            cpts.append({'version': version, 'cpt': c, 'pkg': pkgname})
+            self._mcpts[pkid] = list()
+            cpts = self._mcpts[pkid]
         if not cptlist:
-            cpts.append({'version': version, 'cpt': None, 'pkg': pkgname})
+            return
+        for c in cptlist:
+            cpts.append({'cpt': c, 'pkg': pkgname})
 
 
     def save(self):
@@ -113,26 +115,28 @@ class MetadataPool:
         self._db.begin_transaction()
         self._db_hints.begin_transaction()
 
-        for arch, items in self._mcpts.items():
+        for pkid, items in self._mcpts.items():
+            metadata = ""
+            hints = ""
             for item in items:
                 cpt = item.get('cpt')
-                version = item['version']
-                pkid = get_pkg_id(item['pkg'], version, arch)
-
-                # if the package has no components, mark it as always-ignored
                 if not cpt:
-                    self._db_hints.set(pkid, "ignore")
                     continue
 
                 # get the metadata in YAML format
-                metadata = cpt.to_yaml_doc()
-                hints_yml = cpt.get_hints_yaml()
-                if not hints_yml:
-                    hints_yml = ""
-
                 if not cpt.has_ignore_reason():
-                    self._db.set(pkid, metadata)
-                self._db_hints.set(pkid, hints_yml)
+                    metadata += cpt.to_yaml_doc()
+                hints_yml = cpt.get_hints_yaml()
+                if hints_yml:
+                    hints += hints_yml
+
+            # if the package has no components,
+            # mark it as always-ignore
+            if len(items) == 0:
+                self._db_hints.set(pkid, "ignore")
+            else:
+                self._db.set(pkid, metadata)
+                self._db_hints.set(pkid, hints)
 
         self._db.end_transaction()
         self._db_hints.end_transaction()
@@ -146,7 +150,7 @@ def extract_metadata(mde, sn, pkgname, package_fname, version, arch, pkid):
     data['cpts'] = list(cpts)
     data['version'] = version
     data['pkgname'] = pkgname
-    data['message'] = "Processed package: %s (%s/%s)" % (pkgname, sn, arch)
+    data['message'] = "Processed: %s (%s/%s), found %i" % (pkgname, sn, arch, len(cpts))
 
     return (PROC_STATUS_SUCCESS, data)
 
