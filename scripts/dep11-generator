@@ -118,25 +118,28 @@ class MetadataPool:
         for pkid, items in self._mcpts.items():
             metadata = ""
             hints = ""
+
+            # if the package has no components,
+            # mark it as always-ignore
+            if len(items) == 0:
+                self._db_hints.set(pkid, "ignore")
+                continue
+
             for item in items:
                 cpt = item.get('cpt')
                 if not cpt:
                     continue
 
                 # get the metadata in YAML format
+                md_yaml = cpt.to_yaml_doc()
                 if not cpt.has_ignore_reason():
-                    metadata += cpt.to_yaml_doc()
+                    metadata += md_yaml
                 hints_yml = cpt.get_hints_yaml()
                 if hints_yml:
                     hints += hints_yml
 
-            # if the package has no components,
-            # mark it as always-ignore
-            if len(items) == 0:
-                self._db_hints.set(pkid, "ignore")
-            else:
-                self._db.set(pkid, metadata)
-                self._db_hints.set(pkid, hints)
+            self._db.set(pkid, metadata)
+            self._db_hints.set(pkid, hints)
 
         self._db.end_transaction()
         self._db_hints.end_transaction()
