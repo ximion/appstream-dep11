@@ -266,7 +266,7 @@ class MetadataExtractor:
 
         if icon_data:
             if not os.path.exists(path):
-                os.makedirs(os.path.dirname(path))
+                os.makedirs(path)
 
             if svgicon:
                 # render the SVG to a bitmap
@@ -435,7 +435,7 @@ class MetadataExtractor:
                 cpt.add_hint("icon-not-found", {'icon_fname': icon_str})
             return False
 
-        return True
+        return success
 
 
     def process(self, pkgname, pkg_fname, pkgid=None, metainfo_files=None):
