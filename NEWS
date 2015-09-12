@@ -1,3 +1,23 @@
+Version 0.3.0
+~~~~~~~~~~~~~~
+Released: 2015-09-12
+
+Features:
+ * validator: Adapt to the current DEP-11 spec
+ * Implement parser for the <releases/> tag
+ * Implement DEP-11 0.8 spec
+ * Make generator use the new MediaBaseUrl DEP-11 field by default
+ * Update validator to recognize Releases tag
+ * Further refine icon-finding logic
+
+Bugfixes:
+ * Ensure translated fields have a template set
+ * Fix another issue where the 64x64 icon was not available
+ * Make package filename the first parameter for any icon-storing method
+ * Properly handle multiple components in one package
+ * The to_yaml() functions also set ignore reasons - account for that
+ * Don't set icon if storing it failed (even if we don't know the reason)
+
 Version 0.2.0
 ~~~~~~~~~~~~~~
 Released: 2015-08-10

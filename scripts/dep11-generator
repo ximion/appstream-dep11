@@ -344,6 +344,10 @@ class DEP11Generator:
                     package_fname = os.path.join (self._archive_root, pkg['filename'])
                     pkid = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
 
+                    if pkid.startswith("git-cola") or pkid.startswith("gnome-sudoku"):
+                        self._db.remove(pkid)
+                        self._db_hints.remove(pkid)
+
                     # check if we scanned the package already
                     if self._db.get_str(pkid) or self._db_hints.get_str(pkid):
                         continue
@@ -675,6 +679,22 @@ class HTMLGenerator:
                                 maintainer = "Unknown"
                             if not mdata_summaries.get(maintainer):
                                 mdata_summaries[maintainer] = dict()
+
+
+                            # ugly hack to have the screenshot entries linked
+                            #if mdata.get('Screenshots'):
+                            #    sshot_baseurl = os.path.join(self._dep11_url, component)
+                            #    for i in range(len(mdata['Screenshots'])):
+                            #        url = mdata['Screenshots'][i]['source-image']['url']
+                            #        url = "<a href=\"%s\">%s</a>" % (os.path.join(sshot_baseurl, url), url)
+                            #        mdata['Screenshots'][i]['source-image']['url'] = Markup(url)
+                            #        thumbnails = mdata['Screenshots'][i]['thumbnails']
+                            #        for j in range(len(thumbnails)):
+                            #            url = thumbnails[j]['url']
+                            #            url = "<a href=\"%s\">%s</a>" % (os.path.join(sshot_baseurl, url), url)
+                            #            thumbnails[j]['url'] = Markup(url)
+                            #        mdata['Screenshots'][i]['thumbnails'] = thumbnails
+
 
                             mdata_yml = dict_to_dep11_yaml(mdata)
                             mdata_yml = self._highlight_yaml(mdata_yml)
