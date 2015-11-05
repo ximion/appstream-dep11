@@ -116,6 +116,9 @@ schema_component = Schema({
     'Screenshots': All(list, Length(min=1), [schema_screenshots]),
     'Extends': All(list, [str], Length(min=1)),
     'Releases': All(list, Length(min=1), [schema_releases]),
+
+    # Internal, non-specified fields
+    'X-Source-Checksum': All(str, Length(min=10)),
 })
 
 class DEP11Validator:
