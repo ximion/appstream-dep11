@@ -15,7 +15,7 @@ In order to use AppStream-DEP11, the following components are needed:
  * python-cairo,
  * python-gi,
  * Jinja2,
- * python-kyotocabinet,
+ * python-lmdb,
  * python-lxml,
  * python-pil,
  * Voluptuous,
@@ -24,7 +24,7 @@ In order to use AppStream-DEP11, the following components are needed:
 
 To install all dependencies on Debian systems, use
 ```ShellSession
-sudo apt install gir1.2-rsvg-2.0 python3-apt python3-cairo python3-gi python3-jinja2 python3-kyotocabinet \
+sudo apt install gir1.2-rsvg-2.0 python3-apt python3-cairo python3-gi python3-jinja2 python3-lmdb \
     python3-gi-cairo python3-lxml python3-pil python3-voluptuous python3-yaml python3-pygments
 ```
 
