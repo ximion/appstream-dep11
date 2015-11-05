@@ -16,8 +16,11 @@
 # License along with this program.
 
 import os
+import glob
+import shutil
 import logging as log
 import lmdb
+from math import pow
 
 
 def tobytes(s):
@@ -32,23 +35,42 @@ class DataCache:
         self._pkgdb = None
         self._hintsdb = None
         self._datadb = None
+        self._dbenv = None
+        self.cache_dir = None
         self._opened = False
 
         self.media_dir = media_dir
 
+        # set a huge map size to be futureproof.
+        # This means we're cruel to non-64bit users, but this
+        # software is supposed to be run on 64bit machines anyway.
+        self._map_size = pow(1024, 4)
+
     def open(self, cachedir):
-        self._dbenv = lmdb.open(cachedir, max_dbs=3)
+        self._dbenv = lmdb.open(cachedir, max_dbs=3, map_size=self._map_size)
 
         self._pkgdb = self._dbenv.open_db(b'packages')
         self._hintsdb = self._dbenv.open_db(b'hints')
         self._datadb = self._dbenv.open_db(b'metadata')
 
         self._opened = True
+        self.cache_dir = cachedir
         return True
 
     def close(self):
+        if not self._opened:
+            return
         self._dbenv.close()
+
+        self._pkgdb = None
+        self._hintsdb = None
+        self._datadb = None
+        self._dbenv = None
         self._opened = False
+
+    def reopen(self):
+        self.close()
+        self.open(self.cache_dir)
 
     def has_metadata(self, global_id):
         gid = tobytes(global_id)
@@ -134,6 +156,18 @@ class DataCache:
         with self._dbenv.begin(db=self._hintsdb, write=True) as txn:
             txn.put(pkgid, tobytes(hints_yml))
 
+    def _cleanup_empty_dirs(self, d):
+        parent = os.path.abspath(os.path.join(d, os.pardir))
+        if not os.path.isdir(parent):
+            return
+        if not os.listdir(parent):
+            os.rmdir(parent)
+        parent = os.path.abspath(os.path.join(parent, os.pardir))
+        if not os.path.isdir(parent):
+            return
+        if not os.listdir(parent):
+            os.rmdir(parent)
+
     def remove_package(self, pkgid):
         pkgid = tobytes(pkgid)
 
@@ -144,7 +178,9 @@ class DataCache:
                 dirs = glob.glob(os.path.join(self.media_dir, "*", str(gid)))
                 if dirs:
                     shutil.rmtree(dirs[0])
-                    log.debug("Expired media: %s" % (os.path.basename(dirs[0])))
+                    log.debug("Expired media: %s" % (gid))
+                    # remove possibly empty directories
+                    self._cleanup_empty_dirs(dirs[0])
                 with self._dbenv.begin(db=self._datadb, write=True) as dtxn:
                     dtxn.delete(pkgid)
 

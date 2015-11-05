@@ -24,13 +24,13 @@ import tarfile
 import glob
 import shutil
 import time
+import traceback
 from jinja2 import Environment, FileSystemLoader
 from optparse import OptionParser
-from dep11.multiprocessing import *
 import multiprocessing as mp
 import logging as log
 
-from dep11 import MetadataExtractor, DataCache
+from dep11 import MetadataExtractor, DataCache, build_cpt_global_id
 from dep11.component import DEP11Component, get_dep11_header, dict_to_dep11_yaml
 from dep11.iconfinder import ContentsListIconFinder
 from dep11.utils import read_packages_dict_from_file
@@ -77,11 +77,12 @@ def equal_dicts(d1, d2, ignore_keys):
 
 
 def extract_metadata(mde, sn, pkgname, package_fname, version, arch, pkid):
+    # we're now in a new process and can (re)open a LMDB connection
+    mde.reopen_cache()
     cpts = mde.process(pkgname, package_fname, pkid)
 
-    log.info("Processed: %s (%s/%s), found %i" % (pkgname, sn, arch, len(cpts)))
-
-    return PROC_STATUS_SUCCESS
+    msgtxt = "Processed: %s (%s/%s), found %i" % (pkgname, sn, arch, len(cpts))
+    return msgtxt
 
 
 def load_generator_config(wdir):
@@ -233,8 +234,17 @@ class DEP11Generator:
             for arch in suite['architectures']:
                 pkglist = self._get_packages_for(suite_name, component, arch)
 
-                pool = ExtractorProcessPool(maxtasksperchild=16)
+                # compile a list of packages that we need to look into
+                pkgs_todo = dict()
+                for pkg in pkglist:
+                    pkid = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
 
+                    # check if we scanned the package already
+                    if self._cache.package_exists(pkid):
+                        continue
+                    pkgs_todo[pkid] = pkg
+
+                # set up metadata extractor
                 iconf = ContentsListIconFinder(suite_name, component, arch, self._archive_root)
                 mde = MetadataExtractor(suite_name,
                                 component,
@@ -242,23 +252,38 @@ class DEP11Generator:
                                 self._cache,
                                 iconf)
 
-                for pkg in pkglist:
-                    package_fname = os.path.join (self._archive_root, pkg['filename'])
-                    pkid = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
+                # Multiprocessing can't cope with LMDB open in the cache,
+                # but instead of throwing an error or doing something else
+                # that makes debugging easier, it just silently skips each
+                # multprocessing task. Stupid thing.
+                # (remember to re-open the cache later)
+                self._cache.close()
 
-                    # check if we scanned the package already
-                    if self._cache.package_exists(pkid):
-                        continue
+                # set up multiprocessing
+                with mp.Pool(maxtasksperchild=16) as pool:
+                    def handle_results(message):
+                        log.info(message)
 
-                    if not os.path.exists(package_fname):
-                        log.warning('Package not found: %s' % (package_fname))
-                        continue
-                    #pool.apply_async(extract_metadata,
-                    #            (mde, suite_name, pkg['name'], package_fname, pkg['version'], pkg['arch'], pkid))
-                    extract_metadata(mde, suite_name, pkg['name'], package_fname, pkg['version'], pkg['arch'], pkid)
+                    def handle_error(e):
+                        traceback.print_exception(type(e), e, e.__traceback__)
+                        log.error(str(e))
+                        pool.terminate()
+                        sys.exit(5)
 
-                pool.close()
-                pool.join()
+                    log.info("Processing %i packages." % (len(pkgs_todo)))
+                    for pkid, pkg in pkgs_todo.items():
+                        package_fname = os.path.join (self._archive_root, pkg['filename'])
+                        if not os.path.exists(package_fname):
+                            log.warning('Package not found: %s' % (package_fname))
+                            continue
+                        pool.apply_async(extract_metadata,
+                                    (mde, suite_name, pkg['name'], package_fname, pkg['version'], pkg['arch'], pkid),
+                                    callback=handle_results, error_callback=handle_error)
+                    pool.close()
+                    pool.join()
+
+                # reopen the cache, we need it
+                self._cache.reopen()
 
                 hints_dir = os.path.join(self._export_dir, "hints", suite_name, component)
                 if not os.path.exists(hints_dir):
@@ -534,21 +559,16 @@ class HTMLGenerator:
                                 pkid_noarch = pkg_id[:pkg_id.rfind("_")]
 
                             page_data = {'package_id': pkid_noarch, 'errors': errors, 'warnings': warnings, 'infos': infos, 'archs': [arch]}
-                            try:
-                                l = hint_pages[pkg_name]
-                                index = next(i for i, v in enumerate(l) if equal_dicts(v, page_data, ['archs']))
-                                hint_pages[pkg_name][index]['archs'].append(arch)
-                            except StopIteration:
-                                hint_pages[pkg_name].append(page_data)
+                            hint_pages[pkg_name].append(page_data)
 
-                                # add info to global issue count
-                                error_count += len(errors)
-                                warning_count += len(warnings)
-                                info_count += len(infos)
+                            # add info to global issue count
+                            error_count += len(errors)
+                            warning_count += len(warnings)
+                            info_count += len(infos)
 
-                                # add info for global index
-                                if not issue_summaries[maintainer].get(pkg_name):
-                                    issue_summaries[maintainer][pkg_name] = {'error_count': len(errors), 'warning_count': len(warnings), 'info_count': len(infos)}
+                            # add info for global index
+                            if not issue_summaries[maintainer].get(pkg_name):
+                                issue_summaries[maintainer][pkg_name] = {'error_count': len(errors), 'warning_count': len(warnings), 'info_count': len(infos)}
 
                     if dep11_data:
                         for mdata in dep11_data:
@@ -583,13 +603,15 @@ class HTMLGenerator:
 
                             mdata_yml = dict_to_dep11_yaml(mdata)
                             mdata_yml = self._highlight_yaml(mdata_yml)
+                            cid = mdata.get('ID')
 
                             # try to find an icon for this component (if it's a GUI app)
                             icon_url = None
                             if mdata['Type'] == 'desktop-app' or mdata['Type'] == "web-app":
                                 icon_name = mdata['Icon'].get("cached")
-                                if icon_name:
-                                    icon_fname = os.path.join(component, get_pkg_id(pkg_name, pkg['version'], pkg['arch']), "icons", "64x64", icon_name)
+                                cptgid = build_cpt_global_id(cid, mdata.get('X-Source-Checksum'))
+                                if icon_name and cptgid:
+                                    icon_fname = os.path.join(component, cptgid, "icons", "64x64", icon_name)
                                     if os.path.isfile(os.path.join(media_dir, icon_fname)):
                                         icon_url = os.path.join(self._dep11_url, icon_fname)
                                     else:
@@ -602,17 +624,10 @@ class HTMLGenerator:
                             if not cpt_pages.get(pkg_name):
                                 cpt_pages[pkg_name] = list()
 
-                            cid = mdata.get('ID')
                             page_data = {'cid': cid, 'mdata': mdata_yml, 'icon_url': icon_url, 'archs': [arch]}
-                            try:
-                                l = cpt_pages[pkg_name]
-                                index = next(i for i, v in enumerate(l) if equal_dicts(v, page_data, ['archs', 'icon_url']))
-                                cpt_pages[pkg_name][index]['archs'].append(arch)
-                            except StopIteration:
-                                cpt_pages[pkg_name].append(page_data)
-
-                                # increase valid metainfo count
-                                metainfo_count += 1
+                            cpt_pages[pkg_name].append(page_data)
+                            # increase valid metainfo count
+                            metainfo_count += 1
 
                             # check if we had this package, and add to summary
                             pksum = mdata_summaries[maintainer].get(pkg_name)

@@ -22,7 +22,7 @@ Contains the definition of a DEP-11 component.
 
 import yaml
 import datetime
-from dep11.utils import str_enc_dec
+from dep11.utils import str_enc_dec, build_cpt_global_id
 from dep11.hints import HintSeverity, hint_tag_is_error
 import logging as log
 import hashlib
@@ -229,17 +229,7 @@ class DEP11Component:
         if self._global_id:
             return self._global_id
 
-        if (not self._srcdata_checksum) or (not self._id):
-            return None
-
-        parts = None
-        if self._id.startswith(("org.", "net.", "com.", "io.")):
-            parts = self._id.split(".", 2)
-        if parts and len(parts) > 2:
-            self._global_id = "%s/%s/%s/%s" % (parts[0].lower(), parts[1], parts[2], self.srcdata_checksum)
-        else:
-            self._global_id = "%s/%s/%s" % (self._id[0].lower(), self._id, self.srcdata_checksum)
-
+        self._global_id = build_cpt_global_id(self._id, self.srcdata_checksum)
         return self._global_id
 
     @property
@@ -500,6 +490,11 @@ class DEP11Component:
             d['ID'] = self.cid
         if self.kind:
             d['Type'] = self.kind
+
+        # having the source-data checksum in the final output is useful for
+        # later debugging. It also doesn't use much space.
+        if self.srcdata_checksum:
+            d['X-Source-Checksum'] = self.srcdata_checksum
 
         # check if we need to print ignore information, instead
         # of exporting the software component

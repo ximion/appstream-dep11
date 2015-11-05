@@ -55,11 +55,17 @@ def read_packages_dict_from_file(archive_root, suite, component, arch):
 
     return package_dict
 
-def get_path_for_cpt(cpt, basepath, subdir):
-    gid = cpt.global_id
-    if not gid:
+def build_cpt_global_id(cptid, checksum):
+    if (not checksum) or (not cptid):
         return None
-    if len(cpt.cid) < 1:
-        return None
-    path = os.path.join(basepath, gid, subdir)
-    return path
+
+    gid = None
+    parts = None
+    if cptid.startswith(("org.", "net.", "com.", "io.")):
+        parts = cptid.split(".", 2)
+    if parts and len(parts) > 2:
+        gid = "%s/%s/%s/%s" % (parts[0].lower(), parts[1], parts[2], checksum)
+    else:
+        gid = "%s/%s/%s" % (cptid[0].lower(), cptid, checksum)
+
+    return gid

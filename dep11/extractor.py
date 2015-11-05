@@ -80,6 +80,9 @@ class MetadataExtractor:
     def icon_finder(self, val):
         self._icon_finder = val
 
+    def reopen_cache(self):
+        self._dcache.reopen()
+
     def get_path_for_cpt(self, cpt, basepath, subdir):
         gid = cpt.global_id
         if not gid:
