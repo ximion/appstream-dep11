@@ -62,15 +62,21 @@ a {
     width: 60%;
 }
 
-footer {
-    text-align: center;
-    margin-top: 1em;
+.wrapper hr {
+    border-top: none;
+    border-bottom: 1px solid #819eb7;
+    margin-bottom: 1em;
 }
 
 hr {
     border-top: none;
     border-bottom: 1px solid #d70a53;
     margin-bottom: 1em;
+}
+
+footer {
+    text-align: center;
+    margin-top: 1em;
 }
 
 span.avoidwrap { display: inline-block; }
