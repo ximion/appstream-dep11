@@ -218,6 +218,12 @@ class DEP11Component:
         self._srcdata_checksum = val
 
     @property
+    def global_id(self):
+        if (not self._srcdata_checksum) or (not self._id):
+            return None
+        return self._id+"/"+self._srcdata_checksum
+
+    @property
     def cid(self):
         return self._id
 

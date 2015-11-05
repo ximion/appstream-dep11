@@ -80,6 +80,12 @@ class MetadataExtractor:
     def icon_finder(self, val):
         self._icon_finder = val
 
+    def get_path_for_cpt(self, cpt, basepath, subdir):
+        if len(cpt.cid) < 1:
+            return None
+        path = os.path.join(basepath, cpt.cid[0].lower(), cpt.global_id, subdir)
+        return path
+
     def _get_deb_filelist(self, deb):
         '''
         Returns a list of all files in a deb package
@@ -116,14 +122,14 @@ class MetadataExtractor:
 
         return thumbnails
 
-    def _fetch_screenshots(self, cpt, cpt_export_path, cpt_public_url):
+    def _fetch_screenshots(self, cpt, cpt_export_path, cpt_public_url=""):
         '''
         Fetches screenshots from the given url and
         stores it in png format.
         '''
 
         if not cpt.screenshots:
-            # don't ignore metadata if screenshots itself is not present
+            # don't ignore metadata if no screenshots are present
             return True
 
         success = True
@@ -135,9 +141,9 @@ class MetadataExtractor:
             if not origin_url:
                 # url empty? skip this screenshot
                 continue
-            path = os.path.join(cpt_export_path, cpt.srcdata_checksum, "screenshots")
-            base_url = os.path.join(cpt_public_url, cpt.srcdata_checksum, "screenshots")
-            imgsrc = os.path.join(path, "source", "%s-%s.png" % (cpt.cid, str(cnt)))
+            path     = self.get_path_for_cpt(cpt, cpt_export_path, "screenshots")
+            base_url = self.get_path_for_cpt(cpt, cpt_public_url,  "screenshots")
+            imgsrc   = os.path.join(path, "source", "%s-%s.png" % (cpt.cid, str(cnt)))
 
             # The Debian services use a custom setup for SSL verification, not trusting global CAs and
             # only Debian itself. If we are running on such a setup, ensure we load the global CA certs
@@ -234,7 +240,7 @@ class MetadataExtractor:
         if not os.path.exists(deb_fname):
             return False
 
-        path = "%s/%s/icons/%s/" % (cpt_export_path, cpt.srcdata_checksum, str(size))
+        path = self.get_path_for_cpt(cpt, cpt_export_path, "icons/%s" % (str(size)))
         icon_name = "%s_%s" % (cpt.pkgname, os.path.basename(icon_path))
         icon_name_orig = icon_name
 
@@ -466,7 +472,6 @@ class MetadataExtractor:
             cpt.add_hint("deb-filelist-error", {'pkg_fname': os.path.basename(pkg_fname)})
             return [cpt]
 
-        component_basepath = None
         if not pkgid:
             # we didn't get an identifier, so start guessing one.
             idname, ext = os.path.splitext(os.path.basename(pkg_fname))
@@ -474,12 +479,7 @@ class MetadataExtractor:
                 idname = os.path.basename(pkg_fname)
             pkgid = idname
 
-        component_basepath = "%s/%s" % (self._archive_component, pkgname)
-        export_path = "%s/%s" % (self._export_dir, component_basepath)
-        # the public url consists of the per-file MediaBaseUrl + this component, which is the
-        # package name + the remaining url parts.
-        public_url = pkgname
-
+        export_path = "%s/%s" % (self._export_dir, self._archive_component)
         component_dict = dict()
 
         # if we don't have an explicit list of interesting files, we simply scan all
@@ -566,20 +566,20 @@ class MetadataExtractor:
                         pass
 
         for cpt in component_dict.values():
-            if not cpt.srcdata_checksum:
-                log.error("Component '%s' from package '%s' has no source-data checksum." % (cpt.cid, pkg_fname))
+            if not cpt.global_id:
+                log.error("Component '%s' from package '%s' has no source-data checksum / global-id." % (cpt.cid, pkg_fname))
                 continue
 
             # check if we have a component generated from
             # this source data in the cache already
-            if self._dcache.has_metadata(cpt.srcdata_checksum):
+            if self._dcache.has_metadata(cpt.global_id):
                 continue
 
             self._fetch_icon(cpt, export_path, pkg_fname, filelist)
             if cpt.kind == 'desktop-app' and not cpt.icon:
                 cpt.add_hint("gui-app-without-icon", {'cid': cpt.cid})
             else:
-                self._fetch_screenshots(cpt, export_path, public_url)
+                self._fetch_screenshots(cpt, export_path)
 
         cpts = component_dict.values()
         if self.write_to_cache:

@@ -188,7 +188,7 @@ class DEP11Generator:
                 continue
 
             for size in self._icon_sizes:
-                icon_location_glob = os.path.join (dep11_mediadir, component, pkid, "icons", size, "*.*")
+                icon_location_glob = os.path.join (dep11_mediadir, component, pkg['name'], "*", "icons", size, "*.*")
 
                 tar = None
                 if size not in size_tars:
@@ -241,9 +241,6 @@ class DEP11Generator:
 
                 pool = ExtractorProcessPool(maxtasksperchild=16)
 
-                # start database transactions on the cache
-                self._cache.begin_transaction()
-
                 iconf = ContentsListIconFinder(suite_name, component, arch, self._archive_root)
                 mde = MetadataExtractor(suite_name,
                                 component,
@@ -269,9 +266,6 @@ class DEP11Generator:
                 pool.close()
                 pool.join()
 
-                # finish transaction, with data written to the cache
-                self._cache.end_transaction()
-
                 hints_dir = os.path.join(self._export_dir, "hints", suite_name, component)
                 if not os.path.exists(hints_dir):
                     os.makedirs(hints_dir)
@@ -291,7 +285,7 @@ class DEP11Generator:
 
                 for pkg in pkglist:
                     pkid = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
-                    data = self._cache.get_metadata(pkid)
+                    data = self._cache.get_metadata_for_pkg(pkid)
                     if data:
                         data_f.write(bytes(data, 'utf-8'))
                     hint = self._cache.get_hints(pkid)
