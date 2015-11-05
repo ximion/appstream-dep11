@@ -25,6 +25,7 @@ import datetime
 from dep11.utils import str_enc_dec
 from dep11.hints import HintSeverity, hint_tag_is_error
 import logging as log
+import hashlib
 
 ###########################################################################
 DEP11_VERSION = "0.8"
@@ -142,6 +143,7 @@ class DEP11Component:
         # properties
         self._hints = list()
         self._ignore = False
+        self._srcdata_checksum = ""
 
         self._id = None
         self._type = None
@@ -200,6 +202,20 @@ class DEP11Component:
             return None
         return dict_to_dep11_yaml(self.get_hints_dict())
 
+
+    def set_srcdata_checksum_from_data(self, data):
+        b = bytes(data, 'utf-8')
+        md5sum = hashlib.md5(b).hexdigest()
+        self._srcdata_checksum = md5sum
+
+
+    @property
+    def srcdata_checksum(self):
+        return self._srcdata_checksum
+
+    @srcdata_checksum.setter
+    def srcdata_checksum(self, val):
+        self._srcdata_checksum = val
 
     @property
     def cid(self):

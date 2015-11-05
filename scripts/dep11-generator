@@ -25,13 +25,12 @@ import glob
 import shutil
 import time
 from jinja2 import Environment, FileSystemLoader
-from kyotocabinet import *
 from optparse import OptionParser
 from dep11.multiprocessing import *
 import multiprocessing as mp
 import logging as log
 
-from dep11.extractor import MetadataExtractor
+from dep11 import MetadataExtractor, DataCache
 from dep11.component import DEP11Component, get_dep11_header, dict_to_dep11_yaml
 from dep11.iconfinder import ContentsListIconFinder
 from dep11.utils import read_packages_dict_from_file
@@ -77,85 +76,12 @@ def equal_dicts(d1, d2, ignore_keys):
     return True
 
 
-class MetadataPool:
-    '''
-    A pool of component metadata
-    '''
-
-    def __init__(self, db, hints_db):
-        '''
-        Initialize the metadata pool.
-        '''
-        self._mcpts = dict()
-        self._db = db
-        self._db_hints = hints_db
-
-
-    def append_cptdata(self, pkgname, version, arch, cptlist):
-        '''
-        Makes a list of all the DEP11Component objects in a arch pool
-        '''
-        pkid = get_pkg_id(pkgname, version, arch)
-
-        cpts = self._mcpts.get(pkid)
-        if not cpts:
-            self._mcpts[pkid] = list()
-            cpts = self._mcpts[pkid]
-        if not cptlist:
-            return
-        for c in cptlist:
-            cpts.append({'cpt': c, 'pkg': pkgname})
-
-
-    def save(self):
-        """
-        Saves metadata in db (serialized to YAML)
-        """
-
-        self._db.begin_transaction()
-        self._db_hints.begin_transaction()
-
-        for pkid, items in self._mcpts.items():
-            metadata = ""
-            hints = ""
-
-            # if the package has no components,
-            # mark it as always-ignore
-            if len(items) == 0:
-                self._db_hints.set(pkid, "ignore")
-                continue
-
-            for item in items:
-                cpt = item.get('cpt')
-                if not cpt:
-                    continue
-
-                # get the metadata in YAML format
-                md_yaml = cpt.to_yaml_doc()
-                if not cpt.has_ignore_reason():
-                    metadata += md_yaml
-                hints_yml = cpt.get_hints_yaml()
-                if hints_yml:
-                    hints += hints_yml
-
-            self._db.set(pkid, metadata)
-            self._db_hints.set(pkid, hints)
-
-        self._db.end_transaction()
-        self._db_hints.end_transaction()
-
-
 def extract_metadata(mde, sn, pkgname, package_fname, version, arch, pkid):
     cpts = mde.process(pkgname, package_fname, pkid)
 
-    data = dict()
-    data['arch'] = arch
-    data['cpts'] = list(cpts)
-    data['version'] = version
-    data['pkgname'] = pkgname
-    data['message'] = "Processed: %s (%s/%s), found %i" % (pkgname, sn, arch, len(cpts))
+    log.info("Processed: %s (%s/%s), found %i" % (pkgname, sn, arch, len(cpts)))
 
-    return (PROC_STATUS_SUCCESS, data)
+    return PROC_STATUS_SUCCESS
 
 
 def load_generator_config(wdir):
@@ -206,37 +132,31 @@ class DEP11Generator:
 
         self._archive_root = conf.get("ArchiveRoot")
 
-        self._cache_dir = os.path.join(dep11_dir, "cache")
+        cache_dir = os.path.join(dep11_dir, "cache")
         if conf.get("CacheDir"):
-            self._cache_dir = conf.get("CacheDir")
+            cache_dir = conf.get("CacheDir")
 
         self._export_dir = os.path.join(dep11_dir, "export")
         if conf.get("ExportDir"):
             self._export_dir = conf.get("ExportDir")
 
-        if not os.path.exists(self._cache_dir):
-            os.makedirs(self._cache_dir)
+        if not os.path.exists(cache_dir):
+            os.makedirs(cache_dir)
         if not os.path.exists(self._export_dir):
             os.makedirs(self._export_dir)
 
         self._suites_data = conf['Suites']
 
-        self._db = DB()
-        if not self._db.open(os.path.join(self._cache_dir, "data_cache.kch"), DB.OREADER | DB.OWRITER | DB.OCREATE):
-            log.error("Could not open cache: %s" % (str(self._db.error())), file=sys.stderr)
-            return False
-
-        self._db_hints = DB()
-        if not self._db_hints.open(os.path.join(self._cache_dir, "hints_cache.kch"), DB.OREADER | DB.OWRITER | DB.OCREATE):
-            log.error("Could not open hints cache: %s" % (str(self._db_hints.error())), file=sys.stderr)
-            return False
-
         self._distro_name = conf.get("DistroName")
         if not self._distro_name:
             self._distro_name = "Debian"
 
+        # initialize our on-dik metadata pool
+        self._cache = DataCache(self._get_media_dir())
+        ret = self._cache.open(cache_dir)
+
         os.chdir(dep11_dir)
-        return True
+        return ret
 
 
     def _get_media_dir(self):
@@ -263,8 +183,7 @@ class DEP11Generator:
         for pkg in pkglist:
             pkid = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
 
-            hint = self._db.get_str(pkid)
-            if not hint:
+            if self._cache.is_ignored(pkid):
                 # we do not add icons where the associated component is ignored
                 continue
 
@@ -321,47 +240,37 @@ class DEP11Generator:
                 pkglist = self._get_packages_for(suite_name, component, arch)
 
                 pool = ExtractorProcessPool(maxtasksperchild=16)
-                dpool = MetadataPool(self._db, self._db_hints)
 
-                def parse_results(message):
-                    (code, msg) = message
-                    if code != PROC_STATUS_SUCCESS:
-                        log.error(str(msg))
-                        pool.terminate()
-                        # FIXME: Joining doesn't work, we need a smarter way to terminate on error
-                        # pool.join()
-                        sys.exit(5)
-                    log.info(msg['message'])
-                    dpool.append_cptdata(msg['pkgname'], msg['version'], msg['arch'], msg['cpts'])
+                # start database transactions on the cache
+                self._cache.begin_transaction()
 
                 iconf = ContentsListIconFinder(suite_name, component, arch, self._archive_root)
-                mde = MetadataExtractor(suite_name, component,
-                                dep11_mediadir,
+                mde = MetadataExtractor(suite_name,
+                                component,
                                 self._icon_sizes,
+                                self._cache,
                                 iconf)
 
                 for pkg in pkglist:
                     package_fname = os.path.join (self._archive_root, pkg['filename'])
                     pkid = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
 
-                    if pkid.startswith("git-cola") or pkid.startswith("gnome-sudoku"):
-                        self._db.remove(pkid)
-                        self._db_hints.remove(pkid)
-
                     # check if we scanned the package already
-                    if self._db.get_str(pkid) or self._db_hints.get_str(pkid):
+                    if self._cache.package_exists(pkid):
                         continue
 
                     if not os.path.exists(package_fname):
                         log.warning('Package not found: %s' % (package_fname))
                         continue
-                    pool.apply_async(extract_metadata,
-                                (mde, suite_name, pkg['name'], package_fname, pkg['version'], pkg['arch'], pkid), callback=parse_results)
+                    #pool.apply_async(extract_metadata,
+                    #            (mde, suite_name, pkg['name'], package_fname, pkg['version'], pkg['arch'], pkid))
+                    extract_metadata(mde, suite_name, pkg['name'], package_fname, pkg['version'], pkg['arch'], pkid)
+
                 pool.close()
                 pool.join()
 
-                # save new metadata to the database
-                dpool.save()
+                # finish transaction, with data written to the cache
+                self._cache.end_transaction()
 
                 hints_dir = os.path.join(self._export_dir, "hints", suite_name, component)
                 if not os.path.exists(hints_dir):
@@ -382,11 +291,11 @@ class DEP11Generator:
 
                 for pkg in pkglist:
                     pkid = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
-                    data = self._db.get_str(pkid)
+                    data = self._cache.get_metadata(pkid)
                     if data:
                         data_f.write(bytes(data, 'utf-8'))
-                    hint = self._db_hints.get_str(pkid)
-                    if hint and hint != "ignore":
+                    hint = self._cache.get_hints(pkid)
+                    if hint:
                         hints_f.write(bytes(hint, 'utf-8'))
 
                 data_f.close()

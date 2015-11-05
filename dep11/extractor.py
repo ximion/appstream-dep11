@@ -32,6 +32,8 @@ import logging as log
 from dep11.component import DEP11Component, IconSize
 from dep11.parsers import read_desktop_data, read_appstream_upstream_xml
 from dep11.iconfinder import AbstractIconFinder
+from dep11.datacache import DataCache
+
 
 xdg_icon_sizes = [IconSize(64), IconSize(72), IconSize(96), IconSize(128),
                     IconSize(256), IconSize(512)]
@@ -41,13 +43,15 @@ class MetadataExtractor:
     Takes a deb file and extracts component metadata from it.
     '''
 
-    def __init__(self, suite_name, component, export_dir, icon_sizes, icon_finder=None):
+    def __init__(self, suite_name, component, icon_sizes, dcache, icon_finder=None):
         '''
         Initialize the object with List of files.
         '''
         self._suite_name = suite_name
         self._archive_component = component
-        self._export_dir = export_dir
+        self._export_dir = dcache.media_dir
+        self._dcache = dcache
+        self.write_to_cache = True
 
         self._icon_ext_allowed = ('.png', '.svg', '.xcf', '.gif', '.svgz', '.jpg')
 
@@ -131,8 +135,8 @@ class MetadataExtractor:
             if not origin_url:
                 # url empty? skip this screenshot
                 continue
-            path = os.path.join(cpt_export_path, "screenshots")
-            base_url = os.path.join(cpt_public_url, "screenshots")
+            path = os.path.join(cpt_export_path, cpt.srcdata_checksum, "screenshots")
+            base_url = os.path.join(cpt_public_url, cpt.srcdata_checksum, "screenshots")
             imgsrc = os.path.join(path, "source", "%s-%s.png" % (cpt.cid, str(cnt)))
 
             # The Debian services use a custom setup for SSL verification, not trusting global CAs and
@@ -230,7 +234,7 @@ class MetadataExtractor:
         if not os.path.exists(deb_fname):
             return False
 
-        path = "%s/icons/%s/" % (cpt_export_path, str(size))
+        path = "%s/%s/icons/%s/" % (cpt_export_path, cpt.srcdata_checksum, str(size))
         icon_name = "%s_%s" % (cpt.pkgname, os.path.basename(icon_path))
         icon_name_orig = icon_name
 
@@ -463,19 +467,18 @@ class MetadataExtractor:
             return [cpt]
 
         component_basepath = None
-        if pkgid:
-            component_basepath = "%s/%s" % (self._archive_component, pkgid)
-        else:
+        if not pkgid:
             # we didn't get an identifier, so start guessing one.
             idname, ext = os.path.splitext(os.path.basename(pkg_fname))
             if not idname:
                 idname = os.path.basename(pkg_fname)
-            component_basepath = "%s/%s" % (self._archive_component, idname)
             pkgid = idname
+
+        component_basepath = "%s/%s" % (self._archive_component, pkgname)
         export_path = "%s/%s" % (self._export_dir, component_basepath)
         # the public url consists of the per-file MediaBaseUrl + this component, which is the
-        # component's idname + the remaining url parts.
-        public_url = pkgid
+        # package name + the remaining url parts.
+        public_url = pkgname
 
         component_dict = dict()
 
@@ -518,13 +521,15 @@ class MetadataExtractor:
                     continue
 
                 read_appstream_upstream_xml(cpt, xml_content)
+                component_dict[cpt.cid] = cpt
+
                 # Reads the desktop files associated with the xml file
                 if not cpt.cid:
                     # if there is no ID at all, we dump this component, since we cannot do anything with it at all
                     cpt.add_hint("metainfo-no-id")
                     continue
 
-                component_dict[cpt.cid] = cpt
+                cpt.set_srcdata_checksum_from_data(xml_content)
                 if cpt.kind == "desktop-app":
                     data = mdata_raw.get(cpt.cid)
                     if not data:
@@ -536,6 +541,7 @@ class MetadataExtractor:
                     else:
                         # we have a .desktop component, extend it with the associated .desktop data
                         read_desktop_data(cpt, data['data'])
+                        cpt.set_srcdata_checksum_from_data(xml_content+data['data'])
                     del mdata_raw[cpt.cid]
 
         # now process the remaining metadata files, which have not been processed together with the XML
@@ -553,16 +559,31 @@ class MetadataExtractor:
                     ret = read_desktop_data(cpt, mdata['data'])
                     if ret or not cpt.has_ignore_reason():
                         component_dict[cpt.cid] = cpt
+                        cpt.set_srcdata_checksum_from_data(mdata['data'])
                     else:
                         # this means that reading the .desktop file failed and we should
                         # silently ignore this issue (since the file was marked to be invisible on purpose)
                         pass
 
         for cpt in component_dict.values():
+            if not cpt.srcdata_checksum:
+                log.error("Component '%s' from package '%s' has no source-data checksum." % (cpt.cid, pkg_fname))
+                continue
+
+            # check if we have a component generated from
+            # this source data in the cache already
+            if self._dcache.has_metadata(cpt.srcdata_checksum):
+                continue
+
             self._fetch_icon(cpt, export_path, pkg_fname, filelist)
             if cpt.kind == 'desktop-app' and not cpt.icon:
                 cpt.add_hint("gui-app-without-icon", {'cid': cpt.cid})
             else:
                 self._fetch_screenshots(cpt, export_path, public_url)
 
-        return component_dict.values()
+        cpts = component_dict.values()
+        if self.write_to_cache:
+            # write the components we found to the cache
+            self._dcache.set_components(pkgid, cpts)
+
+        return cpts
