@@ -183,38 +183,32 @@ class DEP11Generator:
         for pkg in pkglist:
             pkid = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
 
-            if self._cache.is_ignored(pkid):
-                # we do not add icons where the associated component is ignored
+            gids = self._cache.get_cpt_gids_for_pkg(pkid)
+            if not gids:
+                # no component global-ids == no icons to add to the tarball
                 continue
 
-            for size in self._icon_sizes:
-                icon_location_glob = os.path.join (dep11_mediadir, component, pkg['name'], "*", "icons", size, "*.*")
+            for gid in gids:
+                for size in self._icon_sizes:
+                    icon_location_glob = os.path.join (dep11_mediadir, component, gid, "icons", size, "*.png")
 
-                tar = None
-                if size not in size_tars:
-                    icon_tar_fname = os.path.join(tar_location, "icons-%s.tar.gz" % (size))
-                    size_tars[size] = tarfile.open(icon_tar_fname+".new", "w:gz")
-                tar = size_tars[size]
+                    tar = None
+                    if size not in size_tars:
+                        icon_tar_fname = os.path.join(tar_location, "icons-%s.tar.gz" % (size))
+                        size_tars[size] = tarfile.open(icon_tar_fname+".new", "w:gz")
+                    tar = size_tars[size]
 
-                for filename in glob.glob(icon_location_glob):
-                    icon_name = os.path.basename(filename)
-                    if size+"/"+icon_name in names_seen:
-                        continue
-                    tar.add(filename, arcname=icon_name)
-                    names_seen.add(size+"/"+icon_name)
+                    for filename in glob.glob(icon_location_glob):
+                        icon_name = os.path.basename(filename)
+                        if size+"/"+icon_name in names_seen:
+                            continue
+                        tar.add(filename, arcname=icon_name)
+                        names_seen.add(size+"/"+icon_name)
 
         for tar in size_tars.values():
             tar.close()
             # FIXME Ugly....
             safe_move_file(tar.name, tar.name.replace(".new", ""))
-
-
-    def _expire_media(self, pkid):
-        dep11_mediadir = self._get_media_dir()
-        dirs = glob.glob(os.path.join(dep11_mediadir, "*", str(pkid)))
-        if dirs:
-            shutil.rmtree(dirs[0])
-            log.debug("Expired: %s" % (os.path.basename(dirs[0])))
 
 
     def process_suite(self, suite_name):
@@ -317,25 +311,16 @@ class DEP11Generator:
                         pkid = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
                         pkgids.add(pkid)
 
-        # clean caches and database
-        for pkid in self._db:
+        # clean cache
+        oldpkgs = self._cache.packages_not_in_set(pkgids)
+        for pkid in oldpkgs:
             pkid = str(pkid, 'utf-8')
-            if pkid in pkgids:
-                continue
-            self._db.remove(pkid)
-            self._expire_media(pkid)
-
-        for pkid in self._db_hints:
-            pkid = str(pkid, 'utf-8')
-            if pkid in pkgids:
-                continue
-            self._db_hints.remove(pkid)
-            self._expire_media(pkid)
+            self._cache.remove_package(pkid)
 
 
     def remove_processed(self, suite_name):
         '''
-        Delete information about processed packages, to later reprocess them.
+        Delete information about processed packages, to reprocess them later.
         '''
 
         suite = self._suites_data.get(suite_name)
@@ -353,13 +338,10 @@ class DEP11Generator:
                     pkid = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
 
                     # we ignore packages without any interesting metadata here
-                    hint = self._db_hints.get_str(pkid)
-                    if str(hint) == "ignore":
+                    if self._cache.is_ignored(pkid):
                         continue
 
-                    self._db_hints.remove(pkid)
-                    self._db.remove(pkid)
-                    self._expire_media(pkid)
+                    self._cache.remove_package(pkid)
 
 
 class HTMLGenerator:

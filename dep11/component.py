@@ -143,7 +143,8 @@ class DEP11Component:
         # properties
         self._hints = list()
         self._ignore = False
-        self._srcdata_checksum = ""
+        self._srcdata_checksum = None
+        self._global_id = None
 
         self._id = None
         self._type = None
@@ -216,12 +217,30 @@ class DEP11Component:
     @srcdata_checksum.setter
     def srcdata_checksum(self, val):
         self._srcdata_checksum = val
+        self._global_id = None
 
     @property
     def global_id(self):
+        """
+        The global-id is used as a global, unique identifier for this component.
+        Its primary usecase is to identify a media directory on the filesystem which is
+        associated with this component.
+        """
+        if self._global_id:
+            return self._global_id
+
         if (not self._srcdata_checksum) or (not self._id):
             return None
-        return self._id+"/"+self._srcdata_checksum
+
+        parts = None
+        if self._id.startswith(("org.", "net.", "com.", "io.")):
+            parts = self._id.split(".", 2)
+        if parts and len(parts) > 2:
+            self._global_id = "%s/%s/%s/%s" % (parts[0].lower(), parts[1], parts[2], self.srcdata_checksum)
+        else:
+            self._global_id = "%s/%s/%s" % (self._id[0].lower(), self._id, self.srcdata_checksum)
+
+        return self._global_id
 
     @property
     def cid(self):
@@ -230,6 +249,7 @@ class DEP11Component:
     @cid.setter
     def cid(self, val):
         self._id = val
+        self._global_id = None
 
     @property
     def kind(self):

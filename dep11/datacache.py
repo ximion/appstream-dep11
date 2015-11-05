@@ -55,24 +55,30 @@ class DataCache:
         with self._dbenv.begin(db=self._pkgdb) as txn:
             return txn.get(gid) != None
 
-    def get_metadata_for_pkg(self, pkgid):
+    def get_cpt_gids_for_pkg(self, pkgid):
         pkgid = tobytes(pkgid)
-        with self._dbenv.begin(db=self._pkgdb) as pktxn:
+        with self._dbenv.begin(db=self._pkgdb) as txn:
+            cs_str = txn.get(pkgid)
+            if not cs_str:
+                return None
+            cs_str = str(cs_str, 'utf-8')
+            if cs_str == 'ignore' or cs_str == 'seen':
+                return None
+            gids = cs_str.split("\n")
+            return gids
+
+    def get_metadata_for_pkg(self, pkgid):
+        gids = self.get_cpt_gids_for_pkg(pkgid)
+        if not gids:
+            return None
+
+        data = ""
+        for gid in gids:
             with self._dbenv.begin(db=self._datadb) as dtxn:
-
-                cs_str = pktxn.get_str(pkgid)
-                if not cs_str:
-                    return None
-                if cs_str == "ignore":
-                    return None
-                csl = cs_str.split("\n")
-
-                data = ""
-                for cs in csl:
-                    d = dtxn.get_str(tobytes(cs))
-                    if d:
-                        data += str(d, 'utf-8')
-                return data
+                d = dtxn.get(tobytes(gid))
+                if d:
+                    data += str(d, 'utf-8')
+        return data
 
     def set_metadata(self, global_id, yaml_data):
         gid = tobytes(global_id)
@@ -110,6 +116,10 @@ class DataCache:
         if gids:
             with self._dbenv.begin(db=self._pkgdb, write=True) as txn:
                 txn.put(pkgid, bytes("\n".join(gids), 'utf-8'))
+        elif hints_str:
+            # we need to set some value for this package, to show that we've seen it
+            with self._dbenv.begin(db=self._pkgdb, write=True) as txn:
+                txn.put(pkgid, b'seen')
 
     def get_hints(self, pkgid):
         pkgid = tobytes(pkgid)
@@ -125,10 +135,23 @@ class DataCache:
             txn.put(pkgid, tobytes(hints_yml))
 
     def remove_package(self, pkgid):
+        pkgid = tobytes(pkgid)
+
+        # remove the media and component data
+        gids = self.get_cpt_gids_for_pkg(pkgid)
+        if gids:
+            for gid in gids:
+                dirs = glob.glob(os.path.join(self.media_dir, "*", str(gid)))
+                if dirs:
+                    shutil.rmtree(dirs[0])
+                    log.debug("Expired media: %s" % (os.path.basename(dirs[0])))
+                with self._dbenv.begin(db=self._datadb, write=True) as dtxn:
+                    dtxn.delete(pkgid)
+
         with self._dbenv.begin(db=self._pkgdb, write=True) as pktxn:
-            with self._dbenv.begin(db=self._hintsdb, write=True) as htxn:
-                pktxn.delete(tobytes(pkgid))
-                htxn.delete(tobytes(pkgid))
+            pktxn.delete(pkgid)
+        with self._dbenv.begin(db=self._hintsdb, write=True) as htxn:
+            htxn.delete(pkgid)
 
     def is_ignored(self, pkgid):
         pkgid = tobytes(pkgid)
@@ -139,3 +162,14 @@ class DataCache:
         pkgid = tobytes(pkgid)
         with self._dbenv.begin(db=self._pkgdb) as txn:
             return txn.get(pkgid) != None
+
+    def packages_not_in_set(self, pkgset):
+        res = set()
+        if not pkgset:
+            pkgset = set()
+        with self._dbenv.begin(db=self._pkgdb) as txn:
+            cursor = txn.cursor()
+            for key, value in cursor:
+                if not key in set:
+                    res.append(key)
+        return res

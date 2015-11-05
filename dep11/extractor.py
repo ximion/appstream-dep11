@@ -81,9 +81,12 @@ class MetadataExtractor:
         self._icon_finder = val
 
     def get_path_for_cpt(self, cpt, basepath, subdir):
+        gid = cpt.global_id
+        if not gid:
+            return None
         if len(cpt.cid) < 1:
             return None
-        path = os.path.join(basepath, cpt.cid[0].lower(), cpt.global_id, subdir)
+        path = os.path.join(basepath, gid, subdir)
         return path
 
     def _get_deb_filelist(self, deb):
@@ -565,7 +568,11 @@ class MetadataExtractor:
                         # silently ignore this issue (since the file was marked to be invisible on purpose)
                         pass
 
-        for cpt in component_dict.values():
+        # fetch media (icons/screenshots), if we don't ignore the component already
+        cpts = component_dict.values()
+        for cpt in cpts:
+            if cpt.has_ignore_reason():
+                continue
             if not cpt.global_id:
                 log.error("Component '%s' from package '%s' has no source-data checksum / global-id." % (cpt.cid, pkg_fname))
                 continue
@@ -581,7 +588,7 @@ class MetadataExtractor:
             else:
                 self._fetch_screenshots(cpt, export_path)
 
-        cpts = component_dict.values()
+        # write data to cache
         if self.write_to_cache:
             # write the components we found to the cache
             self._dcache.set_components(pkgid, cpts)

@@ -54,3 +54,12 @@ def read_packages_dict_from_file(archive_root, suite, component, arch):
         package_dict[pkg['name']] = pkg
 
     return package_dict
+
+def get_path_for_cpt(cpt, basepath, subdir):
+    gid = cpt.global_id
+    if not gid:
+        return None
+    if len(cpt.cid) < 1:
+        return None
+    path = os.path.join(basepath, gid, subdir)
+    return path
