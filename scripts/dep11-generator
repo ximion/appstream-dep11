@@ -261,7 +261,7 @@ class DEP11Generator:
                         pool.terminate()
                         sys.exit(5)
 
-                    log.info("Processing %i packages." % (len(pkgs_todo)))
+                    log.info("Processing %i packages in %s/%s/%s" % (len(pkgs_todo), suite_name, component, arch))
                     for pkid, pkg in pkgs_todo.items():
                         package_fname = os.path.join (self._archive_root, pkg['filename'])
                         if not os.path.exists(package_fname):
