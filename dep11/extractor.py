@@ -20,6 +20,7 @@ import os
 import fnmatch
 import urllib.request
 import ssl
+import yaml
 from apt_inst import DebFile
 from io import BytesIO
 
@@ -581,9 +582,24 @@ class MetadataExtractor:
                 continue
 
             # check if we have a component generated from
-            # this source data in the cache already
-            if self._dcache.has_metadata(cpt.global_id):
-                continue
+            # this source data in the cache already.
+            # To account for packages which change their package name, we
+            # also need to check if the package this component is associated
+            # with matches ours.
+            existing_mdata = self._dcache.get_metadata(cpt.global_id)
+            if existing_mdata:
+                s = "Package: %s\n" % (pkgname)
+                if s in existing_mdata:
+                    continue
+                else:
+                    # the exact same metadata exists in a different package already, raise ab error.
+                    # ATTENTION: This does not cover the case where *different* metadata (as in, different summary etc.)
+                    # but with the *same ID* exists. This kind of issue can only be catched when listing all IDs per
+                    # suite/acomponent combination and checking for dupes (we do that in the DEP-11 validator and display
+                    # the result prominently on the HTML pages)
+                    ecpt = yaml.safe_load(existing_mdata)
+                    cpt.add_hint("metainfo-duplicate-id", {'cid': cpt.cid, 'pkgname': ecpt.get('Package', '')})
+                    continue
 
             self._fetch_icon(cpt, export_path, pkg_fname, filelist)
             if cpt.kind == 'desktop-app' and not cpt.icon:

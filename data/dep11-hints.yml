@@ -117,3 +117,9 @@ metainfo-localized-field-without-template:
   text: The field '%(field_id)s' has no untranslated template entry ("C"). This is usually an error in the accompanying .desktop file, or the translation
         template in the AppStream XML is missing.
   severity: error
+
+metainfo-duplicate-id:
+  text: The component-id '%(cid)s' already appeared in package '%(pkgname)s'. AppStream-IDs must be unique, please resolve which package will be
+        providing this component by default.<br/>
+        This issue may happen temporarily when metadata is moved from one package to another. In that case, ignore this issue, it will vanish soon.
+  severity: error

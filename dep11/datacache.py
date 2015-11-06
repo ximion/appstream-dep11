@@ -89,6 +89,19 @@ class DataCache:
             gids = cs_str.split("\n")
             return gids
 
+    def get_metadata(self, global_id):
+        gid = tobytes(global_id)
+        with self._dbenv.begin(db=self._datadb) as dtxn:
+                d = dtxn.get(tobytes(gid))
+                if not d:
+                    return None
+                return str(d, 'utf-8')
+
+    def set_metadata(self, global_id, yaml_data):
+        gid = tobytes(global_id)
+        with self._dbenv.begin(db=self._datadb, write=True) as txn:
+            txn.put(gid, tobytes(yaml_data))
+
     def get_metadata_for_pkg(self, pkgid):
         gids = self.get_cpt_gids_for_pkg(pkgid)
         if not gids:
@@ -96,16 +109,10 @@ class DataCache:
 
         data = ""
         for gid in gids:
-            with self._dbenv.begin(db=self._datadb) as dtxn:
-                d = dtxn.get(tobytes(gid))
-                if d:
-                    data += str(d, 'utf-8')
+            d = self.get_metadata(gid)
+            if d:
+                data += d
         return data
-
-    def set_metadata(self, global_id, yaml_data):
-        gid = tobytes(global_id)
-        with self._dbenv.begin(db=self._datadb, write=True) as txn:
-            txn.put(gid, tobytes(yaml_data))
 
     def set_package_ignore(self, pkgid):
         pkgid = tobytes(pkgid)
@@ -124,12 +131,13 @@ class DataCache:
         gids = list()
         hints_str = ""
         for cpt in cpts:
-            # get the metadata in YAML format
-            md_yaml = cpt.to_yaml_doc()
             if not cpt.has_ignore_reason():
-                if not self.has_metadata(cpt.global_id):
-                    self.set_metadata(cpt.global_id, md_yaml)
                 gids.append(cpt.global_id)
+                if not self.has_metadata(cpt.global_id):
+                    # get the metadata in YAML format
+                    md_yaml = cpt.to_yaml_doc()
+                    self.set_metadata(cpt.global_id, md_yaml)
+
             hints_yml = cpt.get_hints_yaml()
             if hints_yml:
                 hints_str += hints_yml
@@ -175,14 +183,14 @@ class DataCache:
         gids = self.get_cpt_gids_for_pkg(pkgid)
         if gids:
             for gid in gids:
-                dirs = glob.glob(os.path.join(self.media_dir, "*", str(gid)))
+                dirs = glob.glob(os.path.join(self.media_dir, "*", gid))
                 if dirs:
                     shutil.rmtree(dirs[0])
                     log.debug("Expired media: %s" % (gid))
                     # remove possibly empty directories
                     self._cleanup_empty_dirs(dirs[0])
                 with self._dbenv.begin(db=self._datadb, write=True) as dtxn:
-                    dtxn.delete(pkgid)
+                    dtxn.delete(tobytes(gid))
 
         with self._dbenv.begin(db=self._pkgdb, write=True) as pktxn:
             pktxn.delete(pkgid)
