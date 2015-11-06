@@ -131,12 +131,18 @@ class DataCache:
         gids = list()
         hints_str = ""
         for cpt in cpts:
+            # check for ignore-reasons first, to avoid a database query
             if not cpt.has_ignore_reason():
-                gids.append(cpt.global_id)
-                if not self.has_metadata(cpt.global_id):
+                if self.has_metadata(cpt.global_id):
+                    gids.append(cpt.global_id)
+                else:
                     # get the metadata in YAML format
                     md_yaml = cpt.to_yaml_doc()
-                    self.set_metadata(cpt.global_id, md_yaml)
+                    # we need to check for ignore reasons again, since generating
+                    # the YAML doc may have raised more errors
+                    if not cpt.has_ignore_reason():
+                        self.set_metadata(cpt.global_id, md_yaml)
+                        gids.append(cpt.global_id)
 
             hints_yml = cpt.get_hints_yaml()
             if hints_yml:
