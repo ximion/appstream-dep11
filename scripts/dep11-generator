@@ -345,6 +345,7 @@ class DEP11Generator:
             log.error("Suite '%s' not found!" % (suite_name))
             return False
 
+        gid_pkg = self._cache.get_gids_packages_dict()
         for component in suite['components']:
             all_cpt_pkgs = list()
             for arch in suite['architectures']:
@@ -358,7 +359,7 @@ class DEP11Generator:
                     if self._cache.is_ignored(pkid):
                         continue
 
-                    self._cache.remove_package(pkid)
+                    self._cache.remove_package(pkid, gid_pkg)
 
 
 class HTMLGenerator:

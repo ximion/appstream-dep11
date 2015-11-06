@@ -193,7 +193,7 @@ class DataCache:
                 # (which is not the pkg we're trying to delete here)
                 # If so, we continue without deleting it.
                 ref_pkg = gid_pkg.get(gid, list())
-                if ref_pkg != [pkgid]:
+                if ref_pkg and ref_pkg != [pkgid]:
                     continue
 
                 dirs = glob.glob(os.path.join(self.media_dir, "*", gid))
