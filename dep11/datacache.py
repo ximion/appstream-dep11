@@ -74,20 +74,8 @@ class DataCache:
 
     def has_metadata(self, global_id):
         gid = tobytes(global_id)
-        with self._dbenv.begin(db=self._pkgdb) as txn:
+        with self._dbenv.begin(db=self._datadb) as txn:
             return txn.get(gid) != None
-
-    def get_cpt_gids_for_pkg(self, pkgid):
-        pkgid = tobytes(pkgid)
-        with self._dbenv.begin(db=self._pkgdb) as txn:
-            cs_str = txn.get(pkgid)
-            if not cs_str:
-                return None
-            cs_str = str(cs_str, 'utf-8')
-            if cs_str == 'ignore' or cs_str == 'seen':
-                return None
-            gids = cs_str.split("\n")
-            return gids
 
     def get_metadata(self, global_id):
         gid = tobytes(global_id)
@@ -102,6 +90,23 @@ class DataCache:
         with self._dbenv.begin(db=self._datadb, write=True) as txn:
             txn.put(gid, tobytes(yaml_data))
 
+    def set_package_ignore(self, pkgid):
+        pkgid = tobytes(pkgid)
+        with self._dbenv.begin(db=self._pkgdb, write=True) as txn:
+            txn.put(pkgid, b'ignore')
+
+    def get_cpt_gids_for_pkg(self, pkgid):
+        pkgid = tobytes(pkgid)
+        with self._dbenv.begin(db=self._pkgdb) as txn:
+            cs_str = txn.get(pkgid)
+            if not cs_str:
+                return None
+            cs_str = str(cs_str, 'utf-8')
+            if cs_str == 'ignore' or cs_str == 'seen':
+                return None
+            gids = cs_str.split("\n")
+            return gids
+
     def get_metadata_for_pkg(self, pkgid):
         gids = self.get_cpt_gids_for_pkg(pkgid)
         if not gids:
@@ -113,11 +118,6 @@ class DataCache:
             if d:
                 data += d
         return data
-
-    def set_package_ignore(self, pkgid):
-        pkgid = tobytes(pkgid)
-        with self._dbenv.begin(db=self._pkgdb, write=True) as txn:
-            txn.put(pkgid, b'ignore')
 
     def set_components(self, pkgid, cpts):
         # if the package has no components,
