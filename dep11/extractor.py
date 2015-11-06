@@ -150,7 +150,7 @@ class MetadataExtractor:
                 continue
             path     = self.get_path_for_cpt(cpt, cpt_export_path, "screenshots")
             base_url = self.get_path_for_cpt(cpt, cpt_public_url,  "screenshots")
-            imgsrc   = os.path.join(path, "source", "%s-%s.png" % (cpt.cid, str(cnt)))
+            imgsrc   = os.path.join(path, "source", "scr-%s.png" % (str(cnt)))
 
             # The Debian services use a custom setup for SSL verification, not trusting global CAs and
             # only Debian itself. If we are running on such a setup, ensure we load the global CA certs
@@ -189,7 +189,7 @@ class MetadataExtractor:
                 wd, ht = img.size
                 shot['source-image']['width'] = wd
                 shot['source-image']['height'] = ht
-                shot['source-image']['url'] = os.path.join(base_url, "source", "%s-%s.png" % (cpt.cid, str(cnt)))
+                shot['source-image']['url'] = os.path.join(base_url, "source", "scr-%s.png" % (str(cnt)))
                 img.close()
             except Exception as e:
                 error_msg = str(e)
