@@ -328,11 +328,12 @@ class DEP11Generator:
                         pkgids.add(pkid)
 
         # clean cache
-        gid_pkg = self._cache.get_gids_packages_dict()
         oldpkgs = self._cache.get_packages_not_in_set(pkgids)
         for pkid in oldpkgs:
             pkid = str(pkid, 'utf-8')
-            self._cache.remove_package(pkid, gid_pkg)
+            self._cache.remove_package(pkid)
+        # ensure we don't leave cruft
+        self._cache.remove_orphaned_components()
 
 
     def remove_processed(self, suite_name):
@@ -345,7 +346,6 @@ class DEP11Generator:
             log.error("Suite '%s' not found!" % (suite_name))
             return False
 
-        gid_pkg = self._cache.get_gids_packages_dict()
         for component in suite['components']:
             all_cpt_pkgs = list()
             for arch in suite['architectures']:
@@ -359,7 +359,10 @@ class DEP11Generator:
                     if self._cache.is_ignored(pkid):
                         continue
 
-                    self._cache.remove_package(pkid, gid_pkg)
+                    self._cache.remove_package(pkid)
+
+        # drop all components which don't have packages
+        self._cache.remove_orphaned_components()
 
 
 class HTMLGenerator:

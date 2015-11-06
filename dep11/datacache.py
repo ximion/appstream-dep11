@@ -182,29 +182,9 @@ class DataCache:
         if not os.listdir(parent):
             os.rmdir(parent)
 
-    def remove_package(self, pkgid, gid_pkg=dict()):
+    def remove_package(self, pkgid):
+        log.debug("Dropping package: %s" % (pkgid))
         pkgid = tobytes(pkgid)
-
-        # remove the media and component data
-        gids = self.get_cpt_gids_for_pkg(pkgid)
-        if gids:
-            for gid in gids:
-                # Check if we have a package which is still referencing this component
-                # (which is not the pkg we're trying to delete here)
-                # If so, we continue without deleting it.
-                ref_pkg = gid_pkg.get(gid, list())
-                if ref_pkg and ref_pkg != [pkgid]:
-                    continue
-
-                dirs = glob.glob(os.path.join(self.media_dir, "*", gid))
-                if dirs:
-                    shutil.rmtree(dirs[0])
-                    log.debug("Expired media: %s" % (gid))
-                    # remove possibly empty directories
-                    self._cleanup_empty_dirs(dirs[0])
-                with self._dbenv.begin(db=self._datadb, write=True) as dtxn:
-                    dtxn.delete(tobytes(gid))
-
         with self._dbenv.begin(db=self._pkgdb, write=True) as pktxn:
             pktxn.delete(pkgid)
         with self._dbenv.begin(db=self._hintsdb, write=True) as htxn:
@@ -227,12 +207,12 @@ class DataCache:
         with self._dbenv.begin(db=self._pkgdb) as txn:
             cursor = txn.cursor()
             for key, value in cursor:
-                if not key in pkgset:
+                if not str(key, 'utf-8') in pkgset:
                     res.add(key)
         return res
 
-    def get_gids_packages_dict(self):
-        res = dict()
+    def remove_orphaned_components(self):
+        gid_pkg = dict()
 
         with self._dbenv.begin(db=self._pkgdb) as txn:
             cursor = txn.cursor()
@@ -242,7 +222,29 @@ class DataCache:
                 value = str(value, 'utf-8')
                 gids = value.split("\n")
                 for gid in gids:
-                    if not res.get(gid):
-                        res[gid] = list()
-                    res[gid].append(key)
-        return res
+                    if not gid_pkg.get(gid):
+                        gid_pkg[gid] = list()
+                    gid_pkg[gid].append(key)
+
+        # remove the media and component data, if component is orphaned
+        with self._dbenv.begin(db=self._datadb) as dtxn:
+            cursor = dtxn.cursor()
+            for gid, yaml in cursor:
+                gid = str(gid, 'utf-8')
+
+                # Check if we have a package which is still referencing this component
+                pkgs = gid_pkg.get(gid)
+                if pkgs:
+                    continue
+
+                # drop cached media
+                dirs = glob.glob(os.path.join(self.media_dir, "*", gid))
+                if dirs:
+                    shutil.rmtree(dirs[0])
+                    log.info("Expired media: %s" % (gid))
+                    # remove possibly empty directories
+                    self._cleanup_empty_dirs(dirs[0])
+
+                # drop component from db
+                with self._dbenv.begin(db=self._datadb, write=True) as dtxn:
+                    dtxn.delete(tobytes(gid))
