@@ -114,7 +114,7 @@ class MetadataExtractor:
         '''
         thumbnails = list()
         name = os.path.basename(imgsrc)
-        sizes = ['752x423', '624x351', '112x63']
+        sizes = ['1248x702', '752x423', '624x351', '112x63']
         for size in sizes:
             wd, ht = size.split('x')
             img = Image.open(imgsrc)
