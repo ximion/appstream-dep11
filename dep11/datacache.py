@@ -72,7 +72,7 @@ class DataCache:
         self.close()
         self.open(self.cache_dir)
 
-    def has_metadata(self, global_id):
+    def metadata_exists(self, global_id):
         gid = tobytes(global_id)
         with self._dbenv.begin(db=self._datadb) as txn:
             return txn.get(gid) != None
@@ -133,7 +133,7 @@ class DataCache:
         for cpt in cpts:
             # check for ignore-reasons first, to avoid a database query
             if not cpt.has_ignore_reason():
-                if self.has_metadata(cpt.global_id):
+                if self.metadata_exists(cpt.global_id):
                     gids.append(cpt.global_id)
                 else:
                     # get the metadata in YAML format
