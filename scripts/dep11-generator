@@ -551,8 +551,8 @@ class HTMLGenerator:
 
                             # we fold multiple architectures with the same issues into one view
                             pkid_noarch = pkg_id
-                            if "_" in pkg_id:
-                                pkid_noarch = pkg_id[:pkg_id.rfind("_")]
+                            if "/" in pkg_id:
+                                pkid_noarch = pkg_id[:pkg_id.rfind("/")]
 
                             page_data = {'package_id': pkid_noarch, 'errors': errors, 'warnings': warnings, 'infos': infos, 'archs': [arch]}
                             try:
