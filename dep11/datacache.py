@@ -176,13 +176,20 @@ class DataCache:
         if not os.listdir(parent):
             os.rmdir(parent)
 
-    def remove_package(self, pkgid):
+    def remove_package(self, pkgid, gid_pkg=dict()):
         pkgid = tobytes(pkgid)
 
         # remove the media and component data
         gids = self.get_cpt_gids_for_pkg(pkgid)
         if gids:
             for gid in gids:
+                # Check if we have a package which is still referencing this component
+                # (which is not the pkg we're trying to delete here)
+                # If so, we continue without deleting it.
+                ref_pkg = gid_pkg.get(gid, list())
+                if ref_pkg != [pkgid]:
+                    continue
+
                 dirs = glob.glob(os.path.join(self.media_dir, "*", gid))
                 if dirs:
                     shutil.rmtree(dirs[0])
@@ -207,13 +214,29 @@ class DataCache:
         with self._dbenv.begin(db=self._pkgdb) as txn:
             return txn.get(pkgid) != None
 
-    def packages_not_in_set(self, pkgset):
+    def get_packages_not_in_set(self, pkgset):
         res = set()
         if not pkgset:
             pkgset = set()
         with self._dbenv.begin(db=self._pkgdb) as txn:
             cursor = txn.cursor()
             for key, value in cursor:
-                if not key in set:
-                    res.append(key)
+                if not key in pkgset:
+                    res.add(key)
+        return res
+
+    def get_gids_packages_dict(self):
+        res = dict()
+
+        with self._dbenv.begin(db=self._pkgdb) as txn:
+            cursor = txn.cursor()
+            for key, value in cursor:
+                if not value or value == b'ignore' or value == b'seen':
+                    continue
+                value = str(value, 'utf-8')
+                gids = value.split("\n")
+                for gid in gids:
+                    if not res.get(gid):
+                        res[gid] = list()
+                    res[gid].append(key)
         return res

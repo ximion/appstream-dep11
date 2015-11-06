@@ -328,10 +328,11 @@ class DEP11Generator:
                         pkgids.add(pkid)
 
         # clean cache
-        oldpkgs = self._cache.packages_not_in_set(pkgids)
+        gid_pkg = self._cache.get_gids_packages_dict()
+        oldpkgs = self._cache.get_packages_not_in_set(pkgids)
         for pkid in oldpkgs:
             pkid = str(pkid, 'utf-8')
-            self._cache.remove_package(pkid)
+            self._cache.remove_package(pkid, gid_pkg)
 
 
     def remove_processed(self, suite_name):
@@ -550,16 +551,21 @@ class HTMLGenerator:
                                 pkid_noarch = pkg_id[:pkg_id.rfind("_")]
 
                             page_data = {'package_id': pkid_noarch, 'errors': errors, 'warnings': warnings, 'infos': infos, 'archs': [arch]}
-                            hint_pages[pkg_name].append(page_data)
+                            try:
+                                l = hint_pages[pkg_name]
+                                index = next(i for i, v in enumerate(l) if equal_dicts(v, page_data, ['archs']))
+                                hint_pages[pkg_name][index]['archs'].append(arch)
+                            except StopIteration:
+                                hint_pages[pkg_name].append(page_data)
 
-                            # add info to global issue count
-                            error_count += len(errors)
-                            warning_count += len(warnings)
-                            info_count += len(infos)
+                                # add info to global issue count
+                                error_count += len(errors)
+                                warning_count += len(warnings)
+                                info_count += len(infos)
 
-                            # add info for global index
-                            if not issue_summaries[maintainer].get(pkg_name):
-                                issue_summaries[maintainer][pkg_name] = {'error_count': len(errors), 'warning_count': len(warnings), 'info_count': len(infos)}
+                                # add info for global index
+                                if not issue_summaries[maintainer].get(pkg_name):
+                                    issue_summaries[maintainer][pkg_name] = {'error_count': len(errors), 'warning_count': len(warnings), 'info_count': len(infos)}
 
                     if dep11_data:
                         for mdata in dep11_data:
@@ -616,9 +622,15 @@ class HTMLGenerator:
                                 cpt_pages[pkg_name] = list()
 
                             page_data = {'cid': cid, 'mdata': mdata_yml, 'icon_url': icon_url, 'archs': [arch]}
-                            cpt_pages[pkg_name].append(page_data)
-                            # increase valid metainfo count
-                            metainfo_count += 1
+                            try:
+                                l = cpt_pages[pkg_name]
+                                index = next(i for i, v in enumerate(l) if equal_dicts(v, page_data, ['archs']))
+                                cpt_pages[pkg_name][index]['archs'].append(arch)
+                            except StopIteration:
+                                cpt_pages[pkg_name].append(page_data)
+
+                                # increase valid metainfo count
+                                metainfo_count += 1
 
                             # check if we had this package, and add to summary
                             pksum = mdata_summaries[maintainer].get(pkg_name)
@@ -738,6 +750,7 @@ def main():
             sys.exit(2)
 
         gen.process_suite(args[2])
+
     elif command == "cleanup":
         if len(args) != 2:
             print("Invalid number of arguments: You need to specify a DEP-11 data dir.")
@@ -749,6 +762,7 @@ def main():
             sys.exit(2)
 
         gen.expire_cache()
+
     elif command == "update-html":
         if len(args) != 2:
             print("Invalid number of arguments: You need to specify a DEP-11 data dir.")
@@ -760,6 +774,7 @@ def main():
             sys.exit(2)
 
         hgen.update_html()
+
     elif command == "remove-processed":
         if len(args) != 3:
             print("Invalid number of arguments: You need to specify a DEP-11 data dir and suite.")
