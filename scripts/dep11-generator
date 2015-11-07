@@ -515,9 +515,9 @@ class HTMLGenerator:
                     pkg_index = read_packages_dict_from_file(self._archive_root, suite_name, component, arch)
 
                     if hints_data:
-                        for hint in hints_data:
-                            pkg_name = hint['Package']
-                            pkg_id = hint.get('PackageID')
+                        for hdata in hints_data:
+                            pkg_name = hdata['Package']
+                            pkg_id = hdata.get('PackageID')
                             if not pkg_id:
                                 pkg_id = pkg_name
                             pkg = pkg_index.get(pkg_name)
@@ -529,7 +529,7 @@ class HTMLGenerator:
                             if not issue_summaries.get(maintainer):
                                 issue_summaries[maintainer] = dict()
 
-                            hints_raw = hint.get('Hints', list())
+                            hints_raw = hdata.get('Hints', list())
 
                             # expand all hints to show long descriptions
                             errors = list()
@@ -554,7 +554,13 @@ class HTMLGenerator:
                             if "/" in pkg_id:
                                 pkid_noarch = pkg_id[:pkg_id.rfind("/")]
 
-                            page_data = {'package_id': pkid_noarch, 'errors': errors, 'warnings': warnings, 'infos': infos, 'archs': [arch]}
+                            pcid = ""
+                            if hdata.get('ID'):
+                                pcid = "%s: %s" % (pkid_noarch, hdata.get('ID'))
+                            else:
+                                pcid = pkid_noarch
+
+                            page_data = {'identifier': pcid, 'errors': errors, 'warnings': warnings, 'infos': infos, 'archs': [arch]}
                             try:
                                 l = hint_pages[pkg_name]
                                 index = next(i for i, v in enumerate(l) if equal_dicts(v, page_data, ['archs']))

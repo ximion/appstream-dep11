@@ -15,7 +15,7 @@
 
     {% for entry in entries %}
     <h2>
-      {{entry.package_id}}
+      {{entry.identifier}}
       {% for arch in entry.archs %}
         <span style="font-size:12px;" class="label label-neutral">⚙ {{arch}}</span>
       {% endfor %}
