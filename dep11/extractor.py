@@ -263,12 +263,18 @@ class MetadataExtractor:
 
         # filepath is checked because icon can reside in another binary
         # eg amarok's icon is in amarok-data
+        icon_data = None
         try:
             icon_data = DebFile(deb_fname).data.extractdata(icon_path)
         except Exception as e:
             cpt.add_hint("deb-extract-error", {'fname': icon_name, 'pkg_fname': deb_fname, 'error': str(e)})
             return False
 
+        if not icon_data:
+            cpt.add_hint("deb-extract-error", {'fname': icon_name, 'pkg_fname': deb_fname,
+                                               'error': "Icon data was empty. The icon might be a symbolic link, please do not symlink icons "
+                                                         "(instead place the icons in their appropriate directories in <code>/usr/share/icons/hicolor/</code>)."})
+            return False
         cpt.icon = icon_name
 
         if icon_name_orig.endswith(".svg"):
@@ -281,28 +287,27 @@ class MetadataExtractor:
                 cpt.add_hint("svgz-decompress-error", {'icon_fname': icon_name, 'error': str(e)})
                 return False
 
-        if icon_data:
-            if not os.path.exists(path):
-                os.makedirs(path)
+        if not os.path.exists(path):
+            os.makedirs(path)
 
-            if svgicon:
-                # render the SVG to a bitmap
-                self._render_svg_to_png(icon_data, icon_store_location, int(size), int(size))
-                return True
-            else:
-                # we don't trust upstream to have the right icon size present, and therefore
-                # always adjust the icon to the right size
-                stream = BytesIO(icon_data)
-                stream.seek(0)
-                img = None
-                try:
-                    img = Image.open(stream)
-                except Exception as e:
-                    cpt.add_hint("icon-open-failed", {'icon_fname': icon_name, 'error': str(e)})
-                    return False
-                newimg = img.resize((int(size), int(size)), Image.ANTIALIAS)
-                newimg.save(icon_store_location)
-                return True
+        if svgicon:
+            # render the SVG to a bitmap
+            self._render_svg_to_png(icon_data, icon_store_location, int(size), int(size))
+            return True
+        else:
+            # we don't trust upstream to have the right icon size present, and therefore
+            # always adjust the icon to the right size
+            stream = BytesIO(icon_data)
+            stream.seek(0)
+            img = None
+            try:
+                img = Image.open(stream)
+            except Exception as e:
+                cpt.add_hint("icon-open-failed", {'icon_fname': icon_name, 'error': str(e)})
+                return False
+            newimg = img.resize((int(size), int(size)), Image.ANTIALIAS)
+            newimg.save(icon_store_location)
+            return True
 
         return False
 
