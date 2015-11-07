@@ -1,3 +1,23 @@
+Version 0.4.0
+~~~~~~~~~~~~~~
+Released: 2015-11-07
+
+Features:
+ * Switch to LMDB instead of KyotoCabinet as default database backend
+ * Make private source-checksum field known to the validator
+ * Update README
+ * Update the HTML startpage
+ * Fix various quirks concerning packages moving metadata around
+ * Just enumerate screenshots
+ * Create very large thumbnails, for HiDPI displays
+ * Include component-id in issue-page ID
+
+Bugfixes:
+ * Make multiprocessing and cruft-removal work again
+ * Simplify autocleanup, and prevent it from dropping all packages from the db
+ * Prevent invalid components from overriding existing ones
+ * We can't handle symlinks, so throw a better error in that case
+
 Version 0.3.0
 ~~~~~~~~~~~~~~
 Released: 2015-09-12
