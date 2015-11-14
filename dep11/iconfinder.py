@@ -55,24 +55,38 @@ class ContentsListIconFinder(AbstractIconFinder):
     present in Debian archive mirrors to find icons.
     '''
 
-    def __init__(self, suite_name, archive_component, arch_name, archive_mirror_dir, pkgdict=None):
+    def __init__(self, suite_name, archive_component, arch_name, archive_mirror_dir):
         self._suite_name = suite_name
         self._component = archive_component
-
         self._mirror_dir = archive_mirror_dir
+
+        self._contents_data = list()
+        self._packages_dict = dict()
+
+        self._load_contents_data(arch_name, archive_component)
+        # always load the "main" component too, as this holds the icon themes, usually
+        self._load_contents_data(arch_name, "main")
+
+        # FIXME: On Ubuntu, also include the universe component to find more icons, since
+        # they have split the default iconsets for KDE/GNOME apps between main/universe.
+        universe_cfname = os.path.join(self._mirror_dir, "dists", self._suite_name, "universe", "Contents-%s.gz" % (arch_name))
+        if os.path.isfile(universe_cfname):
+            self._load_contents_data(arch_name, "universe")
+
+    def _load_contents_data(self, arch_name, component):
         contents_basename = "Contents-%s.gz" % (arch_name)
-        contents_fname = os.path.join(archive_mirror_dir, "dists", suite_name, archive_component, contents_basename)
+        contents_fname = os.path.join(self._mirror_dir, "dists", self._suite_name, component, contents_basename)
 
         # Ubuntu does not place the Contents file in a component-specific directory,
         # so fall back to the global one.
         if not os.path.isfile(contents_fname):
-            path = os.path.join(archive_mirror_dir, "dists", suite_name, contents_basename)
+            path = os.path.join(self._mirror_dir, "dists", self._suite_name, contents_basename)
             if os.path.isfile(path):
                 contents_fname = path
 
-        # load and preprocess insanely large file.
-        # we don't show mercy to memory here, we just want this to be fast.
-        self._contents_data = list()
+        # load and preprocess the large file.
+        # we don't show mercy to memory here, we just want the icon lookup to be fast,
+        # so we need to cache the data.
         f = gzip.open(contents_fname, 'r')
         for line in f:
             line = _decode_contents_line(line)
@@ -92,10 +106,8 @@ class ContentsListIconFinder(AbstractIconFinder):
 
         f.close()
 
-        self._packages_dict = pkgdict
-        if not self._packages_dict:
-            self._packages_dict = read_packages_dict_from_file(archive_mirror_dir, suite_name, archive_component, arch_name)
-
+        new_pkgs = read_packages_dict_from_file(self._mirror_dir, self._suite_name, component, arch_name)
+        self._packages_dict.update(new_pkgs)
 
     def _query_icon(self, size, icon):
         '''
