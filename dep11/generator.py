@@ -734,6 +734,9 @@ class HTMLGenerator:
 
 
 def main():
+    """Main entry point of generator"""
+
+    apt_pkg.init()
     parser = OptionParser()
 
     (options, args) = parser.parse_args()
@@ -799,7 +802,3 @@ def main():
     else:
         print("Run with --help for a list of available command-line options!")
 
-
-if __name__ == "__main__":
-    apt_pkg.init()
-    main()
