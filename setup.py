@@ -35,7 +35,12 @@ setup(name = 'dep11',
       author_email = 'mak@debian.org',
       license = 'LGPL-3+',
       packages = ['dep11'],
-      scripts = ['scripts/dep11-generator', 'scripts/dep11-validate'],
+      entry_points = {
+          'console_scripts': [
+              'dep11-generator = dep11.generator:main',
+              'dep11-validate = dep11.validate:main',
+          ],
+      },
       data_files=data_files,
       zip_safe = False,
 )

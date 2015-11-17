@@ -17,6 +17,8 @@
 
 import yaml
 import gzip
+from optparse import OptionParser
+import sys
 import xml.etree.ElementTree as ET
 from voluptuous import Schema, Required, All, Any, Length, Range, Match, Url
 
@@ -306,3 +308,35 @@ class DEP11Validator:
         self.issue_list = list()
 
 __all__.append('DEP11Validator')
+
+def main():
+    """Main entry point of validator"""
+
+    parser = OptionParser()
+    parser.add_option("--no-color",
+                  action="store_true", dest="no_color", default=False,
+                  help="don't print colored output")
+
+    (options, args) = parser.parse_args()
+
+    if len(args) < 1:
+        print("You need to specify a file to validate!")
+        sys.exit(4)
+    fname = args[0]
+
+    validator = DEP11Validator()
+    ret = validator.validate_file(fname)
+    validator.print_issues()
+    if ret:
+        msg = "Validation successful."
+    else:
+        msg = "Validation failed!"
+    if options.no_color:
+        print(msg)
+    elif ret:
+        print('\033[92m' + msg + '\033[0m')
+    else:
+        print('\033[91m' + msg + '\033[0m')
+
+    if not ret:
+        sys.exit(1)
