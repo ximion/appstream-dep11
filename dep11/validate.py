@@ -315,7 +315,7 @@ def main():
     parser = OptionParser()
     parser.add_option("--no-color",
                   action="store_true", dest="no_color", default=False,
-                  help="don'r print colored output")
+                  help="don't print colored output")
 
     (options, args) = parser.parse_args()
 
