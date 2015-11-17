@@ -36,7 +36,7 @@ dep11_header_template = {
 }
 ###########################################################################
 
-class DEP11YamlDumper(yaml.Dumper):
+class DEP11YamlDumper(yaml.SafeDumper):
     '''
     Custom YAML dumper, to ensure resulting YAML file can be read by
     all parsers (even the Java one)

@@ -207,7 +207,7 @@ class DEP11Validator:
         ret = self._test_custom_objects(lines)
 
         try:
-            docs = yaml.load_all(data)
+            docs = yaml.safe_load_all(data)
             header = next(docs)
         except Exception as e:
             self.add_issue("Could not parse file: %s" % (str(e)))
