@@ -69,6 +69,8 @@ class DataCache:
         self._opened = False
 
     def reopen(self):
+        if self._opened:
+            return
         self.close()
         self.open(self.cache_dir)
 
