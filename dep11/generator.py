@@ -26,7 +26,7 @@ import shutil
 import time
 import traceback
 from jinja2 import Environment, FileSystemLoader
-from optparse import OptionParser
+from argparse import ArgumentParser
 import multiprocessing as mp
 import logging as log
 
@@ -737,14 +737,20 @@ def main():
     """Main entry point of generator"""
 
     apt_pkg.init()
-    parser = OptionParser()
 
-    (options, args) = parser.parse_args()
-    if len(args) == 0:
-        print("You need to specify a command!")
-        sys.exit(1)
+    parser = ArgumentParser(description="Generate DEP-11 metadata from Debian packages.")
+    parser.add_argument('subcommand', help="The command that should be executed.")
+    parser.add_argument('parameters', nargs='*', help="Parameters for the subcommand.")
 
-    command = args[0]
+    parser.usage = "\n"
+    parser.usage += " process [CONFDIR] [SUITE] - Process packages and extract metadata.\n"
+    parser.usage += " cleanup [CONFDIR]         - Remove unused data from the cache and expire media.\n"
+    parser.usage += " update-html [CONFDIR]     - Re-generate the metadata and issue HTML pages.\n"
+    parser.usage += " removed-processed [CONFDIR] [SUITE] - Remove information about processed or failed components.\n"
+
+    args = parser.parse_args()
+    command = args.subcommand
+    params = args.parameters
 
     # configure logging
     log_level = log.INFO
@@ -753,23 +759,23 @@ def main():
     log.basicConfig(format='%(asctime)s - %(levelname)s: %(message)s', level=log_level)
 
     if command == "process":
-        if len(args) != 3:
-            print("Invalid number of arguments: You need to specify a DEP-11 data dir and a suite.")
+        if len(params) != 2:
+            print("Invalid number of arguments: You need to specify a DEP-11 data dir and suite.")
             sys.exit(1)
         gen = DEP11Generator()
-        ret = gen.initialize(args[1])
+        ret = gen.initialize(params[0])
         if not ret:
             print("Initialization failed, can not continue.")
             sys.exit(2)
 
-        gen.process_suite(args[2])
+        gen.process_suite(params[1])
 
     elif command == "cleanup":
-        if len(args) != 2:
+        if len(params) != 1:
             print("Invalid number of arguments: You need to specify a DEP-11 data dir.")
             sys.exit(1)
         gen = DEP11Generator()
-        ret = gen.initialize(args[1])
+        ret = gen.initialize(params[0])
         if not ret:
             print("Initialization failed, can not continue.")
             sys.exit(2)
@@ -777,11 +783,11 @@ def main():
         gen.expire_cache()
 
     elif command == "update-html":
-        if len(args) != 2:
+        if len(params) != 1:
             print("Invalid number of arguments: You need to specify a DEP-11 data dir.")
             sys.exit(1)
         hgen = HTMLGenerator()
-        ret = hgen.initialize(args[1])
+        ret = hgen.initialize(params[0])
         if not ret:
             print("Initialization failed, can not continue.")
             sys.exit(2)
@@ -789,16 +795,15 @@ def main():
         hgen.update_html()
 
     elif command == "remove-processed":
-        if len(args) != 3:
+        if len(params) != 2:
             print("Invalid number of arguments: You need to specify a DEP-11 data dir and suite.")
             sys.exit(1)
         gen = DEP11Generator()
-        ret = gen.initialize(args[1])
+        ret = gen.initialize(params[0])
         if not ret:
             print("Initialization failed, can not continue.")
             sys.exit(2)
 
-        gen.remove_processed(args[2])
+        gen.remove_processed(params[1])
     else:
         print("Run with --help for a list of available command-line options!")
-
