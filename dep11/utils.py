@@ -17,6 +17,7 @@
 
 import gzip
 from apt_pkg import TagFile, version_compare
+import os
 
 def str_enc_dec(val):
     '''
@@ -69,3 +70,13 @@ def build_cpt_global_id(cptid, checksum):
         gid = "%s/%s/%s" % (cptid[0].lower(), cptid, checksum)
 
     return gid
+
+def get_data_dir():
+    """Return data directory path. Check first in master, then virtualenv or installed system version."""
+
+    dep11_dir = os.path.dirname(os.path.realpath(__file__))
+    data_dir = os.path.join(os.path.dirname(dep11_dir), "data")
+    if os.path.isdir(data_dir):
+        return data_dir
+
+    return os.path.join(sys.prefix, "share", "dep11")
