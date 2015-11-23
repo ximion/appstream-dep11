@@ -33,7 +33,7 @@ import logging as log
 from dep11 import MetadataExtractor, DataCache, build_cpt_global_id
 from dep11.component import DEP11Component, get_dep11_header, dict_to_dep11_yaml
 from dep11.iconfinder import ContentsListIconFinder
-from dep11.utils import read_packages_dict_from_file
+from dep11.utils import get_data_dir, read_packages_dict_from_file
 from dep11.hints import get_hint_tag_info
 from dep11.validate import DEP11Validator
 
@@ -383,12 +383,7 @@ class HTMLGenerator:
         if not self._html_url:
             self._html_url = "."
 
-        template_dir = os.path.dirname(os.path.realpath(__file__))
-        template_dir = os.path.realpath(os.path.join(template_dir, "..", "data", "templates", "default"))
-        if not os.path.isdir(template_dir):
-            template_dir = os.path.join(sys.prefix, "share", "dep11", "templates")
-
-        self._template_dir = template_dir
+        self._template_dir = os.path.join(get_data_dir(), "templates", "default")
 
         self._distro_name = conf.get("DistroName")
         if not self._distro_name:
