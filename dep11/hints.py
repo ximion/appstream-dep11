@@ -20,6 +20,8 @@ import sys
 import yaml
 import logging as log
 
+from dep11.utils import get_data_dir
+
 __all__ = []
 
 _DEP11_HINT_DESCRIPTIONS = None
@@ -59,12 +61,7 @@ def get_hints_index_fname():
     Find the YAML tag description, even if the DEP-11 metadata generator
     is not properly installed.
     '''
-    fname = os.path.join(sys.prefix, "share", "dep11", "dep11-hints.yml")
-    if os.path.isfile(fname):
-        return fname
-
-    fname = os.path.dirname(os.path.realpath(__file__))
-    fname = os.path.realpath(os.path.join(fname, "..", "data", "dep11-hints.yml"))
+    fname = os.path.join(get_data_dir(), "dep11-hints.yml")
     if os.path.isfile(fname):
         return fname
 
