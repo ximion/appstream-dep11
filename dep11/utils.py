@@ -18,6 +18,7 @@
 import gzip
 from apt_pkg import TagFile, version_compare
 import os
+import sys
 
 def str_enc_dec(val):
     '''
