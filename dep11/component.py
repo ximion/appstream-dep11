@@ -491,11 +491,6 @@ class DEP11Component:
         if self.kind:
             d['Type'] = self.kind
 
-        # having the source-data checksum in the final output is useful for
-        # later debugging. It also doesn't use much space.
-        if self.srcdata_checksum:
-            d['X-Source-Checksum'] = self.srcdata_checksum
-
         # check if we need to print ignore information, instead
         # of exporting the software component
         if self.has_ignore_reason():
