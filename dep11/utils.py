@@ -15,10 +15,11 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this program.
 
-import gzip
-from apt_pkg import TagFile, version_compare
 import os
 import sys
+import gzip
+import yaml
+from apt_pkg import TagFile, version_compare
 
 def str_enc_dec(val):
     '''
@@ -57,6 +58,9 @@ def read_packages_dict_from_file(archive_root, suite, component, arch):
 
     return package_dict
 
+def get_pkg_id(name, version, arch):
+    return "%s/%s/%s" % (name, version, arch)
+
 def build_cpt_global_id(cptid, checksum):
     if (not checksum) or (not cptid):
         return None
@@ -81,3 +85,31 @@ def get_data_dir():
         return data_dir
 
     return os.path.join(sys.prefix, "share", "dep11")
+
+def load_generator_config(wdir):
+    conf_fname = os.path.join(wdir, "dep11-config.yml")
+    if not os.path.isfile(conf_fname):
+        print("Could not find configuration! Make sure 'dep11-config.yml' exists!")
+        return None
+
+    f = open(conf_fname, 'r')
+    conf = yaml.safe_load(f.read())
+    f.close()
+
+    if not conf:
+        print("Configuration is empty!")
+        return None
+
+    if not conf.get("ArchiveRoot"):
+        print("You need to specify an archive root path.")
+        return None
+
+    if not conf.get("Suites"):
+        print("Config is missing information about suites!")
+        return None
+
+    if not conf.get("MediaBaseUrl"):
+        print("You need to specify an URL where additional data (like screenshots) can be downloaded.")
+        return None
+
+    return conf

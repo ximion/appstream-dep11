@@ -26,6 +26,8 @@ from io import BytesIO
 
 import zlib
 import cairo
+import gi
+gi.require_version('Rsvg', '2.0')
 from gi.repository import Rsvg
 from PIL import Image
 import logging as log
