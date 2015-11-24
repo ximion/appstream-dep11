@@ -45,7 +45,9 @@ done
 $GENERATOR_DIR/scripts/dep11-generator cleanup $WORKSPACE_DIR
 
 # Refresh HTML pages
-$GENERATOR_DIR/scripts/dep11-generator update-html $WORKSPACE_DIR
+for suite in $SUITES; do
+    $GENERATOR_DIR/scripts/dep11-generator update-html $WORKSPACE_DIR $suite
+done
 
 # Sync updated data to public directory
 rsync -a --delete-after "$WORKSPACE_DIR/export/" "$PUBLIC_DIR/"
