@@ -36,6 +36,7 @@ from dep11.component import DEP11Component, IconSize
 from dep11.parsers import read_desktop_data, read_appstream_upstream_xml
 from dep11.iconfinder import AbstractIconFinder
 from dep11.datacache import DataCache
+from dep11.utils import build_pkg_id
 
 
 xdg_icon_sizes = [IconSize(64), IconSize(72), IconSize(96), IconSize(128),
@@ -462,7 +463,7 @@ class MetadataExtractor:
         return success
 
 
-    def process(self, pkgname, pkg_fname, pkgid=None, metainfo_files=None):
+    def process(self, pkgname, pkgversion, pkgarch, pkg_fname, metainfo_files=None):
         '''
         Reads the metadata from the xml file and the desktop files.
         And returns a list of DEP11Component objects.
@@ -481,17 +482,13 @@ class MetadataExtractor:
             log.error("List of files for '%s' could not be read" % (pkg_fname))
             filelist = None
 
+        # build the package unique identifier
+        pkgid = build_pkg_id(pkgname, pkgversion, pkgarch)
+
         if not filelist:
             cpt = DEP11Component(self._suite_name, self._archive_component, pkgname, pkgid)
             cpt.add_hint("deb-filelist-error", {'pkg_fname': os.path.basename(pkg_fname)})
             return [cpt]
-
-        if not pkgid:
-            # we didn't get an identifier, so start guessing one.
-            idname, ext = os.path.splitext(os.path.basename(pkg_fname))
-            if not idname:
-                idname = os.path.basename(pkg_fname)
-            pkgid = idname
 
         export_path = "%s/%s" % (self._export_dir, self._archive_component)
         component_dict = dict()
@@ -543,7 +540,7 @@ class MetadataExtractor:
                     cpt.add_hint("metainfo-no-id")
                     continue
 
-                cpt.set_srcdata_checksum_from_data(xml_content)
+                cpt.set_srcdata_checksum_from_data(xml_content + pkgversion)
                 if cpt.kind == "desktop-app":
                     data = mdata_raw.get(cpt.cid)
                     if not data:
@@ -555,7 +552,7 @@ class MetadataExtractor:
                     else:
                         # we have a .desktop component, extend it with the associated .desktop data
                         read_desktop_data(cpt, data['data'])
-                        cpt.set_srcdata_checksum_from_data(xml_content+data['data'])
+                        cpt.set_srcdata_checksum_from_data(xml_content + data['data'] + pkgversion)
                     del mdata_raw[cpt.cid]
 
         # now process the remaining metadata files, which have not been processed together with the XML
@@ -573,7 +570,7 @@ class MetadataExtractor:
                     ret = read_desktop_data(cpt, mdata['data'])
                     if ret or not cpt.has_ignore_reason():
                         component_dict[cpt.cid] = cpt
-                        cpt.set_srcdata_checksum_from_data(mdata['data'])
+                        cpt.set_srcdata_checksum_from_data(mdata['data'] + pkgversion)
                     else:
                         # this means that reading the .desktop file failed and we should
                         # silently ignore this issue (since the file was marked to be invisible on purpose)

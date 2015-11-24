@@ -44,10 +44,10 @@ def safe_move_file(old_fname, new_fname):
     os.rename(old_fname, new_fname)
 
 
-def extract_metadata(mde, sn, pkgname, package_fname, version, arch, pkid):
+def extract_metadata(mde, sn, pkgname, version, arch, package_fname):
     # we're now in a new process and can (re)open a LMDB connection
     mde.reopen_cache()
-    cpts = mde.process(pkgname, package_fname, pkid)
+    cpts = mde.process(pkgname, version, arch, package_fname)
 
     msgtxt = "Processed: %s (%s/%s), found %i" % (pkgname, sn, arch, len(cpts))
     return msgtxt
@@ -216,7 +216,7 @@ class DEP11Generator:
                             log.warning('Package not found: %s' % (package_fname))
                             continue
                         pool.apply_async(extract_metadata,
-                                    (mde, suite_name, pkg['name'], package_fname, pkg['version'], pkg['arch'], pkid),
+                                    (mde, suite_name, pkg['name'], pkg['version'], pkg['arch'], package_fname),
                                     callback=handle_results, error_callback=handle_error)
                     pool.close()
                     pool.join()
