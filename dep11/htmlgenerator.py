@@ -168,12 +168,13 @@ class HTMLGenerator:
         self.render_template("suites_index.html", export_dir_root, "index.html", suites=self._suites_data.keys())
         export_dir = os.path.join(export_dir_root, suite_name)
 
+        log.info("Collecting metadata and issue information data for suite '%s'" % (suite_name))
+
         suite_error_count = 0
         suite_warning_count = 0
         suite_info_count = 0
         suite_metainfo_count = 0
 
-        # TODO: Remove old HTML files
         for component in suite['components']:
             issue_summaries = dict()
             mdata_summaries = dict()
@@ -349,6 +350,10 @@ class HTMLGenerator:
             #
             # Summary and HTML writing
             #
+
+            # TODO: Remove old HTML files
+
+            log.info("Rendering HTML pages for suite '%s'" % (suite_name))
 
             # now write the HTML pages with the previously collected & transformed issue data
             for pkg_name, entry_list in hint_pages.items():
