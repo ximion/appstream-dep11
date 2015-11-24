@@ -58,7 +58,7 @@ def read_packages_dict_from_file(archive_root, suite, component, arch):
 
     return package_dict
 
-def get_pkg_id(name, version, arch):
+def build_pkg_id(name, version, arch):
     return "%s/%s/%s" % (name, version, arch)
 
 def build_cpt_global_id(cptid, checksum):

@@ -26,8 +26,9 @@ import time
 from jinja2 import Environment, FileSystemLoader
 import logging as log
 
+from dep11 import DataCache, build_cpt_global_id, build_pkg_id
 from dep11.component import dict_to_dep11_yaml
-from dep11.utils import get_data_dir, read_packages_dict_from_file, get_pkg_id, load_generator_config, build_cpt_global_id
+from dep11.utils import get_data_dir, read_packages_dict_from_file, load_generator_config
 from dep11.hints import get_hint_tag_info
 from dep11.validate import DEP11Validator
 
@@ -85,8 +86,19 @@ class HTMLGenerator:
 
         self._dep11_url = conf.get("MediaBaseUrl")
 
+        # load metadata cache
+        cache_dir = os.path.join(dep11_dir, "cache")
+        if conf.get("CacheDir"):
+            cache_dir = conf.get("CacheDir")
+        self._cache = DataCache(os.path.join(self._export_dir, "media"))
+        ret = self._cache.open(cache_dir)
+
         os.chdir(dep11_dir)
         return True
+
+
+    def _get_packages_for(self, suite, component, arch):
+        return read_packages_dict_from_file(self._archive_root, suite, component, arch).values()
 
 
     def render_template(self, name, out_dir, out_name = None, *args, **kwargs):
@@ -135,7 +147,7 @@ class HTMLGenerator:
         return {'tag_name': tag_name, 'description': desc, 'severity': severity}
 
 
-    def update_html(self):
+    def update_html(self, suite_name):
         dep11_hintsdir = os.path.join(self._export_dir, "hints")
         if not os.path.exists(dep11_hintsdir):
             return
@@ -143,67 +155,63 @@ class HTMLGenerator:
         if not os.path.exists(dep11_minfodir):
             return
 
-        export_dir = self._html_export_dir
+        suite = self._suites_data.get(suite_name)
+        if not suite:
+            log.error("Suite '%s' not found!" % (suite_name))
+            return False
+
+        export_dir_root = self._html_export_dir
         media_dir = os.path.join(self._export_dir, "media")
         noimage_url = os.path.join(self._html_url, "static", "img", "no-image.png")
 
         # Render archive suites index page
-        self.render_template("suites_index.html", export_dir, "index.html", suites=self._suites_data.keys())
+        self.render_template("suites_index.html", export_dir_root, "index.html", suites=self._suites_data.keys())
+        export_dir = os.path.join(export_dir_root, suite_name)
+
+        suite_error_count = 0
+        suite_warning_count = 0
+        suite_info_count = 0
+        suite_metainfo_count = 0
 
         # TODO: Remove old HTML files
-        for suite_name in self._suites_data:
-            suite = self._suites_data[suite_name]
-            export_dir = os.path.join(self._export_dir, "html", suite_name)
+        for component in suite['components']:
+            issue_summaries = dict()
+            mdata_summaries = dict()
+            export_dir_section = os.path.join(self._export_dir, "html", suite_name, component)
+            export_dir_issues = os.path.join(export_dir_section, "issues")
+            export_dir_metainfo = os.path.join(export_dir_section, "metainfo")
 
-            suite_error_count = 0
-            suite_warning_count = 0
-            suite_info_count = 0
-            suite_metainfo_count = 0
+            error_count = 0
+            warning_count = 0
+            info_count = 0
+            metainfo_count = 0
 
-            for component in suite['components']:
-                issue_summaries = dict()
-                mdata_summaries = dict()
-                export_dir_section = os.path.join(self._export_dir, "html", suite_name, component)
-                export_dir_issues = os.path.join(export_dir_section, "issues")
-                export_dir_metainfo = os.path.join(export_dir_section, "metainfo")
+            hint_pages = dict()
+            cpt_pages = dict()
 
-                error_count = 0
-                warning_count = 0
-                info_count = 0
-                metainfo_count = 0
+            for arch in suite['architectures']:
+                pkglist = self._get_packages_for(suite_name, component, arch)
 
-                hint_pages = dict()
-                cpt_pages = dict()
+                for pkg in pkglist:
+                    pkid = build_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
 
-                for arch in suite['architectures']:
-                    h_fname = os.path.join(dep11_hintsdir, suite_name, component, "DEP11Hints_%s.yml.gz" % (arch))
-                    hints_data = None
-                    if os.path.isfile(h_fname):
-                        f = gzip.open(h_fname, 'r')
-                        hints_data = yaml.safe_load_all(f.read())
-                        f.close()
+                    maintainer = None
+                    if pkg:
+                        maintainer = pkg['maintainer']
+                    if not maintainer:
+                        maintainer = "Unknown"
 
-                    d_fname = os.path.join(dep11_minfodir, suite_name, component, "Components-%s.yml.gz" % (arch))
-                    dep11_data = None
-                    if os.path.isfile(d_fname):
-                        f = gzip.open(d_fname, 'r')
-                        dep11_data = yaml.safe_load_all(f.read())
-                        f.close()
-
-                    pkg_index = read_packages_dict_from_file(self._archive_root, suite_name, component, arch)
-
-                    if hints_data:
-                        for hdata in hints_data:
+                    #
+                    # Data processing hints
+                    #
+                    hints_list = self._cache.get_hints(pkid)
+                    if hints_list:
+                        hints_list = yaml.safe_load_all(hints_list)
+                        for hdata in hints_list:
                             pkg_name = hdata['Package']
                             pkg_id = hdata.get('PackageID')
                             if not pkg_id:
                                 pkg_id = pkg_name
-                            pkg = pkg_index.get(pkg_name)
-                            maintainer = None
-                            if pkg:
-                                maintainer = pkg['maintainer']
-                            if not maintainer:
-                                maintainer = "Unknown"
                             if not issue_summaries.get(maintainer):
                                 issue_summaries[maintainer] = dict()
 
@@ -255,18 +263,23 @@ class HTMLGenerator:
                                 if not issue_summaries[maintainer].get(pkg_name):
                                     issue_summaries[maintainer][pkg_name] = {'error_count': len(errors), 'warning_count': len(warnings), 'info_count': len(infos)}
 
-                    if dep11_data:
-                        for mdata in dep11_data:
+
+                    #
+                    # Component metadata
+                    #
+                    cptgids = self._cache.get_cpt_gids_for_pkg(pkid)
+                    if cptgids:
+                        for cptgid in cptgids:
+                            mdata = self._cache.get_metadata(cptgid)
+                            if not mdata:
+                                log.error("Package '%s' refers to missing component with gid '%s'" % (pkid, cptgid))
+                                continue
+                            mdata = yaml.safe_load(mdata)
+
                             pkg_name = mdata.get('Package')
                             if not pkg_name:
                                 # we probably hit the header
                                 continue
-                            pkg = pkg_index.get(pkg_name)
-                            maintainer = None
-                            if pkg:
-                                maintainer = pkg['maintainer']
-                            if not maintainer:
-                                maintainer = "Unknown"
                             if not mdata_summaries.get(maintainer):
                                 mdata_summaries[maintainer] = dict()
 
@@ -294,8 +307,7 @@ class HTMLGenerator:
                             icon_url = None
                             if mdata['Type'] == 'desktop-app' or mdata['Type'] == "web-app":
                                 icon_name = mdata['Icon'].get("cached")
-                                cptgid = build_cpt_global_id(cid, mdata.get('X-Source-Checksum'))
-                                if icon_name and cptgid:
+                                if icon_name:
                                     icon_fname = os.path.join(component, cptgid, "icons", "64x64", icon_name)
                                     if os.path.isfile(os.path.join(media_dir, icon_fname)):
                                         icon_url = os.path.join(self._dep11_url, icon_fname)
@@ -333,77 +345,79 @@ class HTMLGenerator:
 
                             mdata_summaries[maintainer][pkg_name] = pksum
 
-                    if not dep11_data and not hints_data:
-                        log.warning("Suite %s/%s/%s does not contain DEP-11 data or issue hints.", suite_name, component, arch)
+
+            #
+            # Summary and HTML writing
+            #
+
+            # now write the HTML pages with the previously collected & transformed issue data
+            for pkg_name, entry_list in hint_pages.items():
+                # render issues page
+                self.render_template("issues_page.html", export_dir_issues, "%s.html" % (pkg_name),
+                        package_name=pkg_name, entries=entry_list, suite=suite_name, section=component)
+
+            # render page with all components found in a package
+            for pkg_name, cptlist in cpt_pages.items():
+                # render metainfo page
+                self.render_template("metainfo_page.html", export_dir_metainfo, "%s.html" % (pkg_name),
+                        package_name=pkg_name, cpts=cptlist, suite=suite_name, section=component)
+
+            # Now render our issue index page
+            self.render_template("issues_index.html", export_dir_issues, "index.html",
+                        package_summaries=issue_summaries, suite=suite_name, section=component)
+
+            # ... and the metainfo index page
+            self.render_template("metainfo_index.html", export_dir_metainfo, "index.html",
+                        package_summaries=mdata_summaries, suite=suite_name, section=component)
 
 
-                # now write the HTML pages with the previously collected & transformed issue data
-                for pkg_name, entry_list in hint_pages.items():
-                    # render issues page
-                    self.render_template("issues_page.html", export_dir_issues, "%s.html" % (pkg_name),
-                            package_name=pkg_name, entries=entry_list, suite=suite_name, section=component)
+            validate_result = "Validation was not performed."
+            d_fname = os.path.join(dep11_minfodir, suite_name, component, "Components-%s.yml.gz" % (arch))
+            if os.path.isfile(d_fname):
+                # do format validation
+                validator = DEP11Validator()
+                ret = validator.validate_file(d_fname)
+                if ret:
+                    validate_result = "No errors found."
+                else:
+                    validate_result = ""
+                    for issue in validator.issue_list:
+                        validate_result += issue.replace("FATAL", "<strong>FATAL</strong>")+"<br/>\n"
 
-                # render page with all components found in a package
-                for pkg_name, cptlist in cpt_pages.items():
-                    # render metainfo page
-                    self.render_template("metainfo_page.html", export_dir_metainfo, "%s.html" % (pkg_name),
-                            package_name=pkg_name, cpts=cptlist, suite=suite_name, section=component)
+            # sum up counts for suite statistics
+            suite_metainfo_count += metainfo_count
+            suite_error_count += error_count
+            suite_warning_count += warning_count
+            suite_info_count += info_count
 
-                # Now render our issue index page
-                self.render_template("issues_index.html", export_dir_issues, "index.html",
-                            package_summaries=issue_summaries, suite=suite_name, section=component)
+            # calculate statistics for this component
+            count = metainfo_count + error_count + warning_count + info_count
+            valid_perc = 100/count*metainfo_count if count > 0 else 0
+            error_perc = 100/count*error_count if count > 0 else 0
+            warning_perc = 100/count*warning_count if count > 0 else 0
+            info_perc = 100/count*info_count if count > 0 else 0
 
-                # ... and the metainfo index page
-                self.render_template("metainfo_index.html", export_dir_metainfo, "index.html",
-                            package_summaries=mdata_summaries, suite=suite_name, section=component)
-
-
-                validate_result = "Validation was not performed."
-                if dep11_data:
-                    # do format validation
-                    validator = DEP11Validator()
-                    ret = validator.validate_file(d_fname)
-                    if ret:
-                        validate_result = "No errors found."
-                    else:
-                        validate_result = ""
-                        for issue in validator.issue_list:
-                            validate_result += issue.replace("FATAL", "<strong>FATAL</strong>")+"<br/>\n"
-
-                # sum up counts for suite statistics
-                suite_metainfo_count += metainfo_count
-                suite_error_count += error_count
-                suite_warning_count += warning_count
-                suite_info_count += info_count
-
-                # calculate statistics for this component
-                count = metainfo_count + error_count + warning_count + info_count
-                valid_perc = 100/count*metainfo_count if count > 0 else 0
-                error_perc = 100/count*error_count if count > 0 else 0
-                warning_perc = 100/count*warning_count if count > 0 else 0
-                info_perc = 100/count*info_count if count > 0 else 0
-
-                # Render our overview page
-                self.render_template("section_overview.html", export_dir_section, "index.html",
-                            suite=suite_name, section=component, valid_percentage=valid_perc,
-                            error_percentage=error_perc, warning_percentage=warning_perc, info_percentage=info_perc,
-                            metainfo_count=metainfo_count, error_count=error_count, warning_count=warning_count,
-                            info_count=info_count, validate_result=validate_result)
+            # Render our overview page
+            self.render_template("section_overview.html", export_dir_section, "index.html",
+                        suite=suite_name, section=component, valid_percentage=valid_perc,
+                        error_percentage=error_perc, warning_percentage=warning_perc, info_percentage=info_perc,
+                        metainfo_count=metainfo_count, error_count=error_count, warning_count=warning_count,
+                        info_count=info_count, validate_result=validate_result)
 
 
-            # calculate statistics for this suite
-            count = suite_metainfo_count + suite_error_count + suite_warning_count + suite_info_count
-            valid_perc = 100/count*suite_metainfo_count if count > 0 else 0
-            error_perc = 100/count*suite_error_count if count > 0 else 0
-            warning_perc = 100/count*suite_warning_count if count > 0 else 0
-            info_perc = 100/count*suite_info_count if count > 0 else 0
+        # calculate statistics for this suite
+        count = suite_metainfo_count + suite_error_count + suite_warning_count + suite_info_count
+        valid_perc = 100/count*suite_metainfo_count if count > 0 else 0
+        error_perc = 100/count*suite_error_count if count > 0 else 0
+        warning_perc = 100/count*suite_warning_count if count > 0 else 0
+        info_perc = 100/count*suite_info_count if count > 0 else 0
 
-            # Render archive components index/overview page
-            self.render_template("sections_index.html", export_dir, "index.html",
-                            sections=suite['components'], suite=suite_name, valid_percentage=valid_perc,
-                            error_percentage=error_perc, warning_percentage=warning_perc, info_percentage=info_perc,
-                            metainfo_count=suite_metainfo_count, error_count=suite_error_count, warning_count=suite_warning_count,
-                            info_count=suite_info_count)
+        # Render archive components index/overview page
+        self.render_template("sections_index.html", export_dir, "index.html",
+                        sections=suite['components'], suite=suite_name, valid_percentage=valid_perc,
+                        error_percentage=error_perc, warning_percentage=warning_perc, info_percentage=info_perc,
+                        metainfo_count=suite_metainfo_count, error_count=suite_error_count, warning_count=suite_warning_count,
+                        info_count=suite_info_count)
 
         # Copy the static files
         target_static_dir = os.path.join(self._export_dir, "html", "static")

@@ -23,16 +23,15 @@ import gzip
 import tarfile
 import glob
 import shutil
-import time
 import traceback
 from argparse import ArgumentParser
 import multiprocessing as mp
 import logging as log
 
-from dep11 import MetadataExtractor, DataCache, build_cpt_global_id
+from dep11 import MetadataExtractor, DataCache, build_cpt_global_id, build_pkg_id
 from dep11.component import DEP11Component, get_dep11_header, dict_to_dep11_yaml
 from dep11.iconfinder import ContentsListIconFinder
-from dep11.utils import get_data_dir, read_packages_dict_from_file, get_pkg_id, load_generator_config
+from dep11.utils import get_data_dir, read_packages_dict_from_file, load_generator_config
 from dep11.hints import get_hint_tag_info
 from dep11.htmlgenerator import HTMLGenerator
 
@@ -92,7 +91,7 @@ class DEP11Generator:
         if not self._distro_name:
             self._distro_name = "Debian"
 
-        # initialize our on-dik metadata pool
+        # initialize our on-disk metadata pool
         self._cache = DataCache(self._get_media_dir())
         ret = self._cache.open(cache_dir)
 
@@ -122,7 +121,7 @@ class DEP11Generator:
         size_tars = dict()
 
         for pkg in pkglist:
-            pkid = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
+            pkid = build_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
 
             gids = self._cache.get_cpt_gids_for_pkg(pkid)
             if not gids:
@@ -177,7 +176,7 @@ class DEP11Generator:
                 # compile a list of packages that we need to look into
                 pkgs_todo = dict()
                 for pkg in pkglist:
-                    pkid = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
+                    pkid = build_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
 
                     # check if we scanned the package already
                     if self._cache.package_exists(pkid):
@@ -243,7 +242,7 @@ class DEP11Generator:
                 data_f.write(bytes(dep11_header, 'utf-8'))
 
                 for pkg in pkglist:
-                    pkid = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
+                    pkid = build_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
                     data = self._cache.get_metadata_for_pkg(pkid)
                     if data:
                         data_f.write(bytes(data, 'utf-8'))
@@ -273,7 +272,7 @@ class DEP11Generator:
                 for arch in suite['architectures']:
                     pkglist = self._get_packages_for(suite_name, component, arch)
                     for pkg in pkglist:
-                        pkid = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
+                        pkid = build_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
                         pkgids.add(pkid)
 
         # clean cache
@@ -302,7 +301,7 @@ class DEP11Generator:
 
                 for pkg in pkglist:
                     package_fname = os.path.join (self._archive_root, pkg['filename'])
-                    pkid = get_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
+                    pkid = build_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
 
                     # we ignore packages without any interesting metadata here
                     if self._cache.is_ignored(pkid):
@@ -324,9 +323,9 @@ def main():
     parser.add_argument('parameters', nargs='*', help="Parameters for the subcommand.")
 
     parser.usage = "\n"
-    parser.usage += " process [CONFDIR] [SUITE] - Process packages and extract metadata.\n"
-    parser.usage += " cleanup [CONFDIR]         - Remove unused data from the cache and expire media.\n"
-    parser.usage += " update-html [CONFDIR]     - Re-generate the metadata and issue HTML pages.\n"
+    parser.usage += " process [CONFDIR] [SUITE]     - Process packages and extract metadata.\n"
+    parser.usage += " cleanup [CONFDIR]             - Remove unused data from the cache and expire media.\n"
+    parser.usage += " update-html [CONFDIR] [SUITE] - Re-generate the metadata and issue HTML pages.\n"
     parser.usage += " removed-processed [CONFDIR] [SUITE] - Remove information about processed or failed components.\n"
 
     args = parser.parse_args()
@@ -364,8 +363,8 @@ def main():
         gen.expire_cache()
 
     elif command == "update-html":
-        if len(params) != 1:
-            print("Invalid number of arguments: You need to specify a DEP-11 data dir.")
+        if len(params) != 2:
+            print("Invalid number of arguments: You need to specify a DEP-11 data dir and suite.")
             sys.exit(1)
         hgen = HTMLGenerator()
         ret = hgen.initialize(params[0])
@@ -373,7 +372,7 @@ def main():
             print("Initialization failed, can not continue.")
             sys.exit(2)
 
-        hgen.update_html()
+        hgen.update_html(params[1])
 
     elif command == "remove-processed":
         if len(params) != 2:
