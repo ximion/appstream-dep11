@@ -50,6 +50,10 @@ def read_desktop_data(cpt, dcontent):
                 # we ignore this .desktop file, shouldn't be displayed
                 cpt.add_hint("invisible-application")
                 return False
+            if df.get("Desktop Entry", "X-AppStream-Ignore") == "True":
+                # this .desktop file should be excluded from AppStream metadata
+                cpt.add_hint("invisible-application")
+                return False
         except:
             # we don't care if the NoDisplay variable doesn't exist
             # if it isn't there, the file should be processed
