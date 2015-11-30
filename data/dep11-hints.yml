@@ -60,7 +60,8 @@ deb-extract-error:
   severity: error
 
 deb-empty-file:
-  text: "File '%(fname)s' from package '%(pkg_fname)s' appeared to be empty."
+  text: File '%(fname)s' from package '%(pkg_fname)s' appeared to be empty.<br/>
+        Maybe it is a symbolic link, which we can not follow (please replace it with the actual file).
   severity: error
 
 metainfo-no-id:
