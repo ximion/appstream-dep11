@@ -33,7 +33,7 @@ from dep11.component import DEP11Component, get_dep11_header, dict_to_dep11_yaml
 from dep11.iconfinder import ContentsListIconFinder
 from dep11.utils import get_data_dir, read_packages_dict_from_file, load_generator_config
 from dep11.hints import get_hint_tag_info
-from dep11.htmlgenerator import HTMLGenerator
+from dep11.reportgenerator import ReportGenerator
 
 
 def safe_move_file(old_fname, new_fname):
@@ -325,7 +325,7 @@ def main():
     parser.usage = "\n"
     parser.usage += " process [CONFDIR] [SUITE]     - Process packages and extract metadata.\n"
     parser.usage += " cleanup [CONFDIR]             - Remove unused data from the cache and expire media.\n"
-    parser.usage += " update-html [CONFDIR] [SUITE] - Re-generate the metadata and issue HTML pages.\n"
+    parser.usage += " update-reports [CONFDIR] [SUITE]    - Re-generate the metadata and issue HTML pages and update statistics.\n"
     parser.usage += " removed-processed [CONFDIR] [SUITE] - Remove information about processed or failed components.\n"
 
     args = parser.parse_args()
@@ -362,17 +362,17 @@ def main():
 
         gen.expire_cache()
 
-    elif command == "update-html":
+    elif command == "update-reports":
         if len(params) != 2:
             print("Invalid number of arguments: You need to specify a DEP-11 data dir and suite.")
             sys.exit(1)
-        hgen = HTMLGenerator()
+        hgen = ReportGenerator()
         ret = hgen.initialize(params[0])
         if not ret:
             print("Initialization failed, can not continue.")
             sys.exit(2)
 
-        hgen.update_html(params[1])
+        hgen.update_reports(params[1])
 
     elif command == "remove-processed":
         if len(params) != 2:

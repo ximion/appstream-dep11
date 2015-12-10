@@ -44,9 +44,9 @@ done
 # Cleanup superseded data
 $GENERATOR_DIR/scripts/dep11-generator cleanup $WORKSPACE_DIR
 
-# Refresh HTML pages
+# Refresh HTML pages and update statistics
 for suite in $SUITES; do
-    $GENERATOR_DIR/scripts/dep11-generator update-html $WORKSPACE_DIR $suite
+    $GENERATOR_DIR/scripts/dep11-generator update-reports $WORKSPACE_DIR $suite
 done
 
 # Sync updated data to public directory

@@ -51,7 +51,7 @@ def equal_dicts(d1, d2, ignore_keys):
     return True
 
 
-class HTMLGenerator:
+class ReportGenerator:
     def __init__(self):
         pass
 
@@ -147,7 +147,7 @@ class HTMLGenerator:
         return {'tag_name': tag_name, 'description': desc, 'severity': severity}
 
 
-    def update_html(self, suite_name):
+    def update_reports(self, suite_name):
         dep11_hintsdir = os.path.join(self._export_dir, "hints")
         if not os.path.exists(dep11_hintsdir):
             return
