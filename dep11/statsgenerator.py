@@ -21,6 +21,8 @@ import yaml
 import time
 import logging as log
 import datetime as dt
+import matplotlib
+matplotlib.use('Agg') # use Agg backend, works around GObject error in PyPlots _backend_selection method
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
