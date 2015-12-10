@@ -91,6 +91,13 @@ class DEP11Generator:
         if not self._distro_name:
             self._distro_name = "Debian"
 
+        # the RepositoryName property is only interesting for
+        # 3rd-party repositories using this generator, which don't want
+        # to conflict with the main distro repository data.
+        self._repo_name = conf.get("RepositoryName")
+        if not self._repo_name:
+            self._repo_name = self._distro_name
+
         # initialize our on-disk metadata pool
         self._cache = DataCache(self._get_media_dir())
         ret = self._cache.open(cache_dir)
@@ -238,7 +245,7 @@ class DEP11Generator:
                 hints_f = gzip.open(hints_fname+".new", 'wb')
                 data_f = gzip.open(data_fname+".new", 'wb')
 
-                dep11_header = get_dep11_header(suite_name, component, os.path.join(self._dep11_url, component))
+                dep11_header = get_dep11_header(self._repo_name, suite_name, component, os.path.join(self._dep11_url, component), suite.get('dataPriority', 0))
                 data_f.write(bytes(dep11_header, 'utf-8'))
 
                 for pkg in pkglist:

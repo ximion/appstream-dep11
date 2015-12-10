@@ -37,18 +37,27 @@ dep11_header_template = {
 ###########################################################################
 
 class DEP11YamlDumper(yaml.SafeDumper):
-    '''
+    """
     Custom YAML dumper, to ensure resulting YAML file can be read by
     all parsers (even the Java one)
-    '''
+    """
     def increase_indent(self, flow=False, indentless=False):
         return super(DEP11YamlDumper, self).increase_indent(flow, False)
 
 
-def get_dep11_header(suite_name, component_name, base_url):
+def get_dep11_header(repo_name, suite_name, component_name, base_url, priority):
+    """
+    Build a DEP-11 header YAML document. This document must always be at the start of
+    a valid DEP-11 YAML file.
+    """
     head_dict = dep11_header_template
-    head_dict['Origin'] = "%s-%s" % (suite_name, component_name)
+
+    origin = "%s-%s-%s" % (repo_name, suite_name, component_name)
+    head_dict['Origin'] = origin.lower()
     head_dict['MediaBaseUrl'] = base_url
+    if priority != 0:
+        head_dict['Priority'] = priority
+
     return yaml.dump(head_dict, Dumper=DEP11YamlDumper,
                             default_flow_style=False, explicit_start=True,
                             explicit_end=False, width=200, indent=2)
