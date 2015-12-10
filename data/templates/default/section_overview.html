@@ -20,19 +20,24 @@
     <div class="wrapper">
 
       <h3>Issue overview</h3>
-      <div class="progress">
-        <div style="width: {{valid_percentage}}%" class="progress-bar progress-bar-green">
-          <span class="sr-only">{{valid_percentage}}% Valid</span>
+      <div style="width: 80%;">
+
+        <div class="progress" style="margin-left: 20px;">
+          <div style="width: {{valid_percentage}}%" class="progress-bar progress-bar-green">
+            <span class="sr-only">{{valid_percentage}}% Valid</span>
+          </div>
+          <div style="width: {{info_percentage}}%" class="progress-bar progress-bar-blue">
+            <span class="sr-only">{{info_percentage}}% Infos</span>
+          </div>
+          <div style="width: {{warning_percentage}}%" class="progress-bar progress-bar-yellow">
+            <span class="sr-only">{{warning_percentage}}% Warnings</span>
+          </div>
+          <div style="width: {{error_percentage}}%" class="progress-bar progress-bar-red">
+            <span class="sr-only">{{error_percentage}}% Errors</span>
+          </div>
         </div>
-        <div style="width: {{info_percentage}}%" class="progress-bar progress-bar-blue">
-          <span class="sr-only">{{info_percentage}}% Infos</span>
-        </div>
-        <div style="width: {{warning_percentage}}%" class="progress-bar progress-bar-yellow">
-          <span class="sr-only">{{warning_percentage}}% Warnings</span>
-        </div>
-        <div style="width: {{error_percentage}}%" class="progress-bar progress-bar-red">
-          <span class="sr-only">{{error_percentage}}% Errors</span>
-        </div>
+
+        <img class="fit" style="margin: 4px;" src="../stats/{{suite}}-{{section}}_stats.png" alt="Statistics Time Graph" />
       </div>
 
       <ul>

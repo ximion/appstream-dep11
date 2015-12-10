@@ -35,6 +35,7 @@ class DataCache:
         self._pkgdb = None
         self._hintsdb = None
         self._datadb = None
+        self._statsdb = None
         self._dbenv = None
         self.cache_dir = None
         self._opened = False
@@ -47,11 +48,12 @@ class DataCache:
         self._map_size = pow(1024, 4)
 
     def open(self, cachedir):
-        self._dbenv = lmdb.open(cachedir, max_dbs=3, map_size=self._map_size)
+        self._dbenv = lmdb.open(cachedir, max_dbs=4, map_size=self._map_size)
 
         self._pkgdb = self._dbenv.open_db(b'packages')
         self._hintsdb = self._dbenv.open_db(b'hints')
         self._datadb = self._dbenv.open_db(b'metadata')
+        self._statsdb = self._dbenv.open_db(b'statistics')
 
         self._opened = True
         self.cache_dir = cachedir
@@ -66,6 +68,7 @@ class DataCache:
         self._hintsdb = None
         self._datadb = None
         self._dbenv = None
+        self._statsdb = None
         self._opened = False
 
     def reopen(self):
@@ -250,3 +253,22 @@ class DataCache:
                 # drop component from db
                 with self._dbenv.begin(db=self._datadb, write=True) as dtxn:
                     dtxn.delete(tobytes(gid))
+
+    def set_stats(self, timestamp, data):
+        data = tobytes(data)
+        tstamp = timestamp.to_bytes(10, byteorder='big')
+        with self._dbenv.begin(db=self._statsdb, write=True) as txn:
+            txn.put(tstamp, data)
+
+    def get_stats(self):
+        stats = dict()
+
+        with self._dbenv.begin(db=self._statsdb) as txn:
+            cursor = txn.cursor()
+            for key, value in cursor:
+                if not value or value == b'ignore' or value == b'seen':
+                    continue
+                value = str(value, 'utf-8')
+                key = int.from_bytes(key, byteorder='big')
+                stats[key] = value
+        return stats

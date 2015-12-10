@@ -68,6 +68,11 @@ a {
     margin-bottom: 1em;
 }
 
+img.fit {
+    max-width: 99%;
+    max-height: 99%;
+}
+
 hr {
     border-top: none;
     border-bottom: 1px solid #d70a53;

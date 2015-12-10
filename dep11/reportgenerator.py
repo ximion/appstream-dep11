@@ -31,6 +31,7 @@ from dep11.component import dict_to_dep11_yaml
 from dep11.utils import get_data_dir, read_packages_dict_from_file, load_generator_config
 from dep11.hints import get_hint_tag_info
 from dep11.validate import DEP11Validator
+from dep11.statsgenerator import StatsGenerator
 
 try:
     import pygments
@@ -168,8 +169,9 @@ class ReportGenerator:
         self.render_template("suites_index.html", export_dir_root, "index.html", suites=self._suites_data.keys())
         export_dir = os.path.join(export_dir_root, suite_name)
 
-        log.info("Collecting metadata and issue information data for suite '%s'" % (suite_name))
+        log.info("Collecting metadata and issue information for suite '%s'" % (suite_name))
 
+        stats = StatsGenerator(self._cache)
         suite_error_count = 0
         suite_warning_count = 0
         suite_info_count = 0
@@ -395,6 +397,9 @@ class ReportGenerator:
             suite_warning_count += warning_count
             suite_info_count += info_count
 
+            # add current statistics to the statistics database
+            stats.add_data(suite_name, component, metainfo_count, error_count, warning_count, info_count)
+
             # calculate statistics for this component
             count = metainfo_count + error_count + warning_count + info_count
             valid_perc = 100/count*metainfo_count if count > 0 else 0
@@ -423,6 +428,9 @@ class ReportGenerator:
                         error_percentage=error_perc, warning_percentage=warning_perc, info_percentage=info_perc,
                         metainfo_count=suite_metainfo_count, error_count=suite_error_count, warning_count=suite_warning_count,
                         info_count=suite_info_count)
+
+        # plot graphs
+        stats.plot_graphs(os.path.join(export_dir, "stats"))
 
         # Copy the static files
         target_static_dir = os.path.join(self._export_dir, "html", "static")
