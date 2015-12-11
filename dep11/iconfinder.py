@@ -131,7 +131,7 @@ class ContentsListIconFinder(AbstractIconFinder):
                 return None
 
             # prepare selecting icon from a theme
-            files_list = self._icon_themes_data[theme_name]
+            files_list = self._icon_themes_data.get(theme_name)
             valid = re.compile('^usr/share/icons/' + theme_name + '/' + size_str + '/.*/' + icon_name + '[\.png|\.svg|\.svgz]')
         else:
             # prepare searching for icon in the global hicolor theme
