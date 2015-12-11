@@ -6,10 +6,12 @@ internal-unknown-tag:
 not-an-application:
   text: "The .desktop file found in <i>/usr/share/applications</i> does not have a 'Type=Application' field."
   severity: error
+  internal: true
 
 invisible-application:
   text: "The .desktop file in <i>/usr/share/applications</i> has the invisible flag set, the application is therefore ignored."
   severity: error
+  internal: true
 
 desktop-file-read-error:
   text: "Unable to read data from .desktop file: %(msg)s"
@@ -61,7 +63,8 @@ deb-extract-error:
 
 deb-empty-file:
   text: File '%(fname)s' from package '%(pkg_fname)s' appeared to be empty.<br/>
-        Maybe it is a symbolic link, which we can not follow (please replace it with the actual file).
+        It could also be a broken symbolic link, or a link pointing to a file in a different package (in that case, please replace
+        the link with the actual file).
   severity: error
 
 metainfo-no-id:
