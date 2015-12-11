@@ -353,9 +353,10 @@ class ReportGenerator:
             # Summary and HTML writing
             #
 
-            # TODO: Remove old HTML files
-
             log.info("Rendering HTML pages for suite '%s/%s'" % (suite_name, component))
+
+            # remove old HTML pages
+            shutil.rmtree(export_dir_section, ignore_errors=True)
 
             # now write the HTML pages with the previously collected & transformed issue data
             for pkg_name, entry_list in hint_pages.items():
