@@ -191,7 +191,8 @@ class DEP11Generator:
                     pkgs_todo[pkid] = pkg
 
                 # set up metadata extractor
-                iconf = ContentsListIconFinder(suite_name, component, arch, self._archive_root)
+                icon_theme = suite.get('useIconTheme')
+                iconf = ContentsListIconFinder(suite_name, component, arch, self._archive_root, icon_theme)
                 mde = MetadataExtractor(suite_name,
                                 component,
                                 self._icon_sizes,

@@ -55,7 +55,7 @@ class ContentsListIconFinder(AbstractIconFinder):
     present in Debian archive mirrors to find icons.
     '''
 
-    def __init__(self, suite_name, archive_component, arch_name, archive_mirror_dir):
+    def __init__(self, suite_name, archive_component, arch_name, archive_mirror_dir, icon_theme=None):
         self._suite_name = suite_name
         self._component = archive_component
         self._mirror_dir = archive_mirror_dir
@@ -73,6 +73,8 @@ class ContentsListIconFinder(AbstractIconFinder):
         #   (We still see lots of Oxygen icons for software, simply because Oxygen contains more icon sizes,
         #    and often can satisfy an icon requirement much faster)
         self._theme_names = ["Adwaita", "oxygen"]
+        if icon_theme:
+            self._theme_names.append(icon_theme)
 
         self._load_contents_data(arch_name, archive_component)
         # always load the "main" component too, as this holds the icon themes, usually
@@ -83,6 +85,12 @@ class ContentsListIconFinder(AbstractIconFinder):
         universe_cfname = os.path.join(self._mirror_dir, "dists", self._suite_name, "universe", "Contents-%s.gz" % (arch_name))
         if os.path.isfile(universe_cfname):
             self._load_contents_data(arch_name, "universe")
+
+        # small optimization: We don't want to look for themes which don't exist
+        # on every icon query, so we remove the empty ones.
+        for theme in self._theme_names[:]:
+            if not self._icon_themes_data.get(theme):
+                self._theme_names.remove(theme)
 
     def _load_contents_data(self, arch_name, component):
         contents_basename = "Contents-%s.gz" % (arch_name)
