@@ -95,19 +95,21 @@ class StatsGenerator:
                 plt.gca().xaxis.set_major_formatter(formatter)
                 plt.gca().xaxis.set_major_locator(locator)
 
-                # NOTE: The "dates" variable should be the same for all issue hints, but in case we change that in future
-                # (e.g. by adding another hint type), we calculate it individually here.
-                dates = [dt.datetime.fromtimestamp(d) for d in vals['mcount'].keys()]
-                plt.plot(dates, list(vals['mcount'].values()), color='green', linestyle='solid', marker='o')
+                def add_plot(pdata, color, style, marker):
+                    # NOTE: The "dates" variable should be the same for all issue hints, but in case we change that in future
+                    # (e.g. by adding another hint type), we calculate it individually here.
+                    dates = list()
+                    counts = list()
+                    timestamps = sorted(pdata.keys())
+                    for timestamp in timestamps:
+                        dates.append(dt.datetime.fromtimestamp(timestamp))
+                        counts.append(pdata[timestamp])
+                    plt.plot(dates, counts, color=color, linestyle=style, marker=marker)
 
-                dates = [dt.datetime.fromtimestamp(d) for d in vals['ecount'].keys()]
-                plt.plot(dates, list(vals['ecount'].values()), color='red', linestyle='solid', marker='o')
-
-                dates = [dt.datetime.fromtimestamp(d) for d in vals['wcount'].keys()]
-                plt.plot(dates, list(vals['wcount'].values()), color='orange', linestyle='solid', marker='o')
-
-                dates = [dt.datetime.fromtimestamp(d) for d in vals['icount'].keys()]
-                plt.plot(dates, list(vals['icount'].values()), color='cornflowerblue', linestyle='solid', marker='o')
+                add_plot(vals['mcount'], color='green', style='solid', marker='o')
+                add_plot(vals['ecount'], color='red', style='solid', marker='o')
+                add_plot(vals['wcount'], color='orange', style='solid', marker='o')
+                add_plot(vals['icount'], color='cornflowerblue', style='solid', marker='o')
 
                 plt.gcf().autofmt_xdate()
                 plt.savefig(os.path.join(out_dir, "%s-%s_stats.png" % (suite, component)), bbox_inches='tight')

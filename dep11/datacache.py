@@ -266,7 +266,7 @@ class DataCache:
         with self._dbenv.begin(db=self._statsdb) as txn:
             cursor = txn.cursor()
             for key, value in cursor:
-                if not value or value == b'ignore' or value == b'seen':
+                if not value:
                     continue
                 value = str(value, 'utf-8')
                 key = int.from_bytes(key, byteorder='big')
