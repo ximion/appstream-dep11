@@ -125,22 +125,27 @@ class MetadataExtractor:
             nonlocal symlink_target, fdata
             if member.issym():
                 symlink_target = member.linkname
+                if symlink_target.startswith('/'):
+                    # absolute path
+                    symlink_target = symlink_target[1:]
+                else:
+                    # relative path
+                    symlink_target = os.path.normpath(os.path.join(fname, '..', symlink_target))
                 return
             fdata = data
 
         deb.data.go(handle_data, fname)
         if not fdata and symlink_target:
             # we have a symlink, try to follow it
-            if symlink_target.startswith('/'):
-                symlink_target = symlink_target[1:]
             deb.data.go(handle_data, symlink_target)
         return fdata
 
     def _scale_screenshot(self, imgsrc, cpt_export_path, cpt_scr_url):
-        '''
-        scale images in three sets of two-dimensions
+        """
+        Scale images in three sets of two-dimensions
         (752x423 624x351 and 112x63)
-        '''
+        """
+
         thumbnails = list()
         name = os.path.basename(imgsrc)
         sizes = ['1248x702', '752x423', '624x351', '112x63']
