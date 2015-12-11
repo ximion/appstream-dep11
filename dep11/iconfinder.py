@@ -60,8 +60,19 @@ class ContentsListIconFinder(AbstractIconFinder):
         self._component = archive_component
         self._mirror_dir = archive_mirror_dir
 
-        self._contents_data = list()
+        self._icons_data = list()
+        self._icon_themes_data = dict()
         self._packages_dict = dict()
+
+        # Preseeded theme names.
+        # * allow Oxygen icon theme, needed to support KDE apps (they have no icon at all, otherwise...)
+        # * in rare events, GNOME needs the same treatment, so special-case Adwaita as well
+        # * We need at least one icon theme to provide the default XDG icon spec stock icons.
+        #   A fair take would be to select them between KDE and GNOME at random, but for consistency and
+        #   because everyone hates unpredictable behavior, we prefer Adwaita over Oxygen.
+        #   (We still see lots of Oxygen icons for software, simply because Oxygen contains more icon sizes,
+        #    and often can satisfy an icon requirement much faster)
+        self._theme_names = ["Adwaita", "oxygen"]
 
         self._load_contents_data(arch_name, archive_component)
         # always load the "main" component too, as this holds the icon themes, usually
@@ -91,40 +102,51 @@ class ContentsListIconFinder(AbstractIconFinder):
         for line in f:
             line = _decode_contents_line(line)
             if line.startswith("usr/share/icons/hicolor/") or line.startswith("usr/share/pixmaps/"):
-                self._contents_data.append(line)
+                self._icons_data.append(line)
                 continue
 
-            # allow Oxygen icon theme, needed to support KDE apps
-            if line.startswith("usr/share/icons/oxygen"):
-                self._contents_data.append(line)
-                continue
-
-            # in rare events, GNOME needs the same treatment, so special-case Adwaita as well
-            if line.startswith("usr/share/icons/Adwaita"):
-                self._contents_data.append(line)
-                continue
+            for theme in self._theme_names:
+                if line.startswith("usr/share/icons/"+theme):
+                    if not self._icon_themes_data.get(theme):
+                        self._icon_themes_data[theme] = list()
+                    self._icon_themes_data[theme].append(line)
+                    continue
 
         f.close()
 
         new_pkgs = read_packages_dict_from_file(self._mirror_dir, self._suite_name, component, arch_name)
         self._packages_dict.update(new_pkgs)
 
-    def _query_icon(self, size, icon):
-        '''
-        Find icon files in the archive which match a size.
-        '''
+    def _search_icon_in_theme(self, size_str, icon_name, theme_name=None):
+        """
+        Find icon in the archive contents, in hicolor or in
+        a specific theme.
+        """
 
-        if not self._contents_data:
-            return None
-
+        files_list = list()
         valid = None
-        if size:
-            valid = re.compile('^usr/share/icons/.*/' + size + '/apps/' + icon + '[\.png|\.svg|\.svgz]')
+        if theme_name:
+            if not size_str:
+                # we don't search for icons with unknown size in themes
+                return None
+
+            # prepare selecting icon from a theme
+            files_list = self._icon_themes_data[theme_name]
+            valid = re.compile('^usr/share/icons/' + theme_name + '/' + size_str + '/.*/' + icon_name + '[\.png|\.svg|\.svgz]')
         else:
-            valid = re.compile('^usr/share/pixmaps/' + icon + '.png')
+            # prepare searching for icon in the global hicolor theme
+            files_list = self._icons_data
+            if size_str:
+                valid = re.compile('^usr/share/icons/.*/' + size_str + '/apps/' + icon_name + '[\.png|\.svg|\.svgz]')
+            else:
+                valid = re.compile('^usr/share/pixmaps/' + icon_name + '.png')
+
+        # we can't find an icon if the file-list is empty
+        if not files_list:
+                return None
 
         res = list()
-        for line in self._contents_data:
+        for line in files_list:
             if valid.match(line):
                 res.append(line)
 
@@ -148,6 +170,23 @@ class ContentsListIconFinder(AbstractIconFinder):
 
         return None
 
+    def _search_icon(self, size_str, icon_name):
+        """
+        Find icon files in the archive which match a size.
+        """
+
+        # always search for non-theme icon first
+        icon = self._search_icon_in_theme(size_str, icon_name)
+        if icon:
+            return icon
+
+        # then test the themes
+        for theme in self._theme_names:
+            icon = self._search_icon_in_theme(size_str, icon_name, theme)
+            if icon:
+                return icon;
+
+        return icon
 
     def find_icons(self, package, icon, sizes):
         '''
@@ -156,7 +195,7 @@ class ContentsListIconFinder(AbstractIconFinder):
         size_map_flist = dict()
 
         for size in sizes:
-            flist = self._query_icon(str(size), icon)
+            flist = self._search_icon(str(size), icon)
             if flist:
                 size_map_flist[size] = flist
 
@@ -164,7 +203,7 @@ class ContentsListIconFinder(AbstractIconFinder):
             # see if we can find a scalable vector graphic as icon
             # we assume "64x64" as size here, and resize the vector
             # graphic later.
-            flist = self._query_icon("scalable", icon)
+            flist = self._search_icon("scalable", icon)
 
             if flist:
                 size_map_flist[IconSize(64)] = flist
@@ -177,7 +216,7 @@ class ContentsListIconFinder(AbstractIconFinder):
                 else:
                     # some software doesn't store icons in sized XDG directories.
                     # catch these here, and assume that the size is 64x64
-                    flist = self._query_icon(None, icon)
+                    flist = self._search_icon(None, icon)
                     if flist:
                         size_map_flist[IconSize(64)] = flist
 
