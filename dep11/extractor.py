@@ -110,6 +110,32 @@ class MetadataExtractor:
 
         return files
 
+    def _get_deb_file_data(self, deb, fname):
+        """
+        Extract data from a .deb file, following symlinks.
+        """
+
+        # strip / from the start of the filename (doesn't and shouldn't exist in .deb payload)
+        if fname.startswith('/'):
+                fname = fname[1:]
+
+        fdata = None
+        symlink_target = None
+        def handle_data(member, data):
+            nonlocal symlink_target, fdata
+            if member.issym():
+                symlink_target = member.linkname
+                return
+            fdata = data
+
+        deb.data.go(handle_data, fname)
+        if not fdata and symlink_target:
+            # we have a symlink, try to follow it
+            if symlink_target.startswith('/'):
+                symlink_target = symlink_target[1:]
+            deb.data.go(handle_data, symlink_target)
+        return fdata
+
     def _scale_screenshot(self, imgsrc, cpt_export_path, cpt_scr_url):
         '''
         scale images in three sets of two-dimensions
@@ -268,7 +294,8 @@ class MetadataExtractor:
         # eg amarok's icon is in amarok-data
         icon_data = None
         try:
-            icon_data = DebFile(deb_fname).data.extractdata(icon_path)
+            deb = DebFile(deb_fname)
+            icon_data = self._get_deb_file_data(deb, icon_path)
         except Exception as e:
             cpt.add_hint("deb-extract-error", {'fname': icon_name, 'pkg_fname': deb_fname, 'error': str(e)})
             return False
@@ -463,11 +490,12 @@ class MetadataExtractor:
         return success
 
 
-    def process(self, pkgname, pkgversion, pkgarch, pkg_fname, metainfo_files=None):
-        '''
+    def _process_pkg(self, pkgname, pkgversion, pkgarch, pkg_fname, metainfo_files=None):
+        """
         Reads the metadata from the xml file and the desktop files.
-        And returns a list of DEP11Component objects.
-        '''
+        Returns a list of processed DEP11Component objects.
+        """
+
         deb = None
         try:
             deb = DebFile(pkg_fname)
@@ -507,7 +535,7 @@ class MetadataExtractor:
 
                 error = None
                 try:
-                    dcontent = str(deb.data.extractdata(meta_file), 'utf-8')
+                    dcontent = str(self._get_deb_file_data(deb, meta_file), 'utf-8')
                 except Exception as e:
                     error = {'tag': "deb-extract-error",
                                 'params': {'fname': cpt_id, 'pkg_fname': os.path.basename(pkg_fname), 'error': str(e)}}
@@ -523,7 +551,7 @@ class MetadataExtractor:
                 cpt = DEP11Component(self._suite_name, self._archive_component, pkgname, pkgid)
 
                 try:
-                    xml_content = str(deb.data.extractdata(meta_file), 'utf-8')
+                    xml_content = str(self._get_deb_file_data(deb, meta_file), 'utf-8')
                 except Exception as e:
                     # inability to read an AppStream XML file is a valid reason to skip the whole package
                     cpt.add_hint("deb-extract-error", {'fname': meta_file, 'pkg_fname': os.path.basename(pkg_fname), 'error': str(e)})
@@ -610,6 +638,20 @@ class MetadataExtractor:
                 cpt.add_hint("gui-app-without-icon", {'cid': cpt.cid})
             else:
                 self._fetch_screenshots(cpt, export_path)
+
+        return cpts
+
+    def process(self, pkgname, pkgversion, pkgarch, pkg_fname, metainfo_files=None):
+        """
+        Reads the metadata from the xml file and the desktop files.
+        Returns a list of DEP11Component objects, and writes the result to the cache.
+        """
+
+        cpts = self._process_pkg(pkgname, pkgversion, pkgarch, pkg_fname, metainfo_files)
+
+        # build the package unique identifier (again)
+        # NOTE: We could also get this from any returned DEP11Component (pkid property)
+        pkgid = build_pkg_id(pkgname, pkgversion, pkgarch)
 
         # write data to cache
         if self.write_to_cache:

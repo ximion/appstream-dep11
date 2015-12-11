@@ -206,7 +206,7 @@ class DEP11Generator:
                 self._cache.close()
 
                 # set up multiprocessing
-                with mp.Pool(maxtasksperchild=16) as pool:
+                with mp.Pool(maxtasksperchild=24) as pool:
                     def handle_results(message):
                         log.info(message)
 
@@ -332,8 +332,8 @@ def main():
     parser.usage = "\n"
     parser.usage += " process [CONFDIR] [SUITE]     - Process packages and extract metadata.\n"
     parser.usage += " cleanup [CONFDIR]             - Remove unused data from the cache and expire media.\n"
-    parser.usage += " update-reports [CONFDIR] [SUITE]    - Re-generate the metadata and issue HTML pages and update statistics.\n"
-    parser.usage += " removed-processed [CONFDIR] [SUITE] - Remove information about processed or failed components.\n"
+    parser.usage += " update-reports [CONFDIR] [SUITE]   - Re-generate the metadata and issue HTML pages and update statistics.\n"
+    parser.usage += " remove-processed [CONFDIR] [SUITE] - Remove information about processed or failed components.\n"
 
     args = parser.parse_args()
     command = args.subcommand
