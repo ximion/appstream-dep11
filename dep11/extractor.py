@@ -297,11 +297,11 @@ class MetadataExtractor:
             deb = DebFile(deb_fname)
             icon_data = self._get_deb_file_data(deb, icon_path)
         except Exception as e:
-            cpt.add_hint("deb-extract-error", {'fname': icon_name, 'pkg_fname': deb_fname, 'error': str(e)})
+            cpt.add_hint("deb-extract-error", {'fname': icon_name, 'pkg_fname': os.path.basename(deb_fname), 'error': str(e)})
             return False
 
         if not icon_data:
-            cpt.add_hint("deb-extract-error", {'fname': icon_name, 'pkg_fname': deb_fname,
+            cpt.add_hint("deb-extract-error", {'fname': icon_name, 'pkg_fname': os.path.basename(deb_fname),
                                                'error': "Icon data was empty. The icon might be a symbolic link, please do not symlink icons "
                                                          "(instead place the icons in their appropriate directories in <code>/usr/share/icons/hicolor/</code>)."})
             return False
@@ -504,14 +504,14 @@ class MetadataExtractor:
         if not deb:
             return list()
 
-        try:
-            filelist = self._get_deb_filelist(deb)
-        except:
-            log.error("List of files for '%s' could not be read" % (pkg_fname))
-            filelist = None
-
         # build the package unique identifier
         pkgid = build_pkg_id(pkgname, pkgversion, pkgarch)
+
+        try:
+            filelist = self._get_deb_filelist(deb)
+        except Exception as e:
+            log.error("List of files for '%s' could not be read" % (pkg_fname))
+            filelist = None
 
         if not filelist:
             cpt = DEP11Component(self._suite_name, self._archive_component, pkgname, pkgid)
