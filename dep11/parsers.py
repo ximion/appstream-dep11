@@ -132,9 +132,7 @@ def read_desktop_data(cpt, dcontent):
             if len(value) > 1:
                 value.pop()
             for val in value:
-                cpt.add_provided_item(
-                    ProvidedItemType.MIMETYPE, val
-                )
+                cpt.add_provided_item(ProvidedItemType.MIMETYPE, val)
         elif key == 'icon':
             cpt.icon = value
     return True
@@ -386,9 +384,13 @@ def read_appstream_upstream_xml(cpt, xml_content):
                     cpt.add_provided_item(
                         ProvidedItemType.PYTHON_3, bins.text
                     )
-                if bins.tag == 'codec':
+                if bins.tag == 'modalias':
                     cpt.add_provided_item(
-                        ProvidedItemType.CODEC, bins.text
+                        ProvidedItemType.MODALIAS, bins.text
+                    )
+                if bins.tag == 'font':
+                    cpt.add_provided_item(
+                        ProvidedItemType.FONT, bins.text
                     )
 
         elif subs.tag == "url":

@@ -128,11 +128,12 @@ class ProvidedItemType:
     BINARY = 'binaries'
     LIBRARY = 'libraries'
     MIMETYPE = 'mimetypes'
-    DBUS = 'dbus'
+    FONT = 'fonts'
+    MODALIAS = 'modaliases'
     PYTHON_2 = 'python2'
     PYTHON_3 = 'python3'
+    DBUS = 'dbus'
     FIRMWARE = 'firmware'
-    CODEC = 'codecs'
 
 
 class DEP11Component:
