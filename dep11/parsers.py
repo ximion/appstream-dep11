@@ -40,14 +40,15 @@ def read_desktop_data(cpt, dcontent):
     try:
         df.readfp(StringIO(dcontent))
 
-        items = df.items("Desktop Entry")
-        if df.get("Desktop Entry", "Type") != "Application":
+        dtype = df.get("Desktop Entry", "Type")
+        if dtype and dtype.lower() != "application":
             # ignore this file, isn't an application
             cpt.add_hint("not-an-application")
             return False
 
         try:
-            if df.get("Desktop Entry", "NoDisplay", "false").lower() == "true":
+            nodisplay = df.get("Desktop Entry", "NoDisplay")
+            if nodisplay and nodisplay.lower() == "true":
                 # we ignore this .desktop file, shouldn't be displayed
                 cpt.add_hint("invisible-application")
                 return False
@@ -57,7 +58,8 @@ def read_desktop_data(cpt, dcontent):
             pass
 
         try:
-            if df.get("Desktop Entry", "X-AppStream-Ignore", "false").lower() == "true":
+            asignore = df.get("Desktop Entry", "X-AppStream-Ignore")
+            if asignore and asignore.lower() == "true":
                 # this .desktop file should be excluded from AppStream metadata
                 cpt.add_hint("invisible-application")
                 return False
@@ -65,6 +67,8 @@ def read_desktop_data(cpt, dcontent):
             # we don't care if the AppStream-Ignore variable doesn't exist
             # if it isn't there, the file should be processed
             pass
+
+        items = df.items('Desktop Entry')
 
     except Exception as e:
         # this .desktop file is not interesting
