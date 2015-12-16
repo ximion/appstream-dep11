@@ -137,7 +137,13 @@ class DataCache:
         hints_str = ""
         for cpt in cpts:
             # check for ignore-reasons first, to avoid a database query
-            if not cpt.has_ignore_reason():
+            if cpt.has_ignore_reason():
+                # if we ignore the component, make sure the on-disk media cache
+                # does not contain traces of it (e.g. from downloading data or
+                # rendering screenshots before hitting an error)
+                if self._remove_media_for_gid(cpt.global_id):
+                    log.info("Removed cached media for: %s" % (cpt.global_id))
+            else:
                 if self.metadata_exists(cpt.global_id):
                     gids.append(cpt.global_id)
                 else:
@@ -216,6 +222,16 @@ class DataCache:
                     res.add(key)
         return res
 
+    def _remove_media_for_gid(self, gid):
+        if not self.media_dir:
+            return False
+        dirs = glob.glob(os.path.join(self.media_dir, "*", gid))
+        if dirs:
+            shutil.rmtree(dirs[0])
+            # remove possibly empty directories
+            self._cleanup_empty_dirs(dirs[0])
+            return True
+
     def remove_orphaned_components(self):
         gid_pkg = dict()
 
@@ -243,12 +259,8 @@ class DataCache:
                     continue
 
                 # drop cached media
-                dirs = glob.glob(os.path.join(self.media_dir, "*", gid))
-                if dirs:
-                    shutil.rmtree(dirs[0])
+                if self._remove_media_for_gid(gid):
                     log.info("Expired media: %s" % (gid))
-                    # remove possibly empty directories
-                    self._cleanup_empty_dirs(dirs[0])
 
                 # drop component from db
                 with self._dbenv.begin(db=self._datadb, write=True) as dtxn:
