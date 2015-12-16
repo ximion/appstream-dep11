@@ -225,6 +225,8 @@ class DataCache:
     def _remove_media_for_gid(self, gid):
         if not self.media_dir:
             return False
+        if not gid:
+            return False
         dirs = glob.glob(os.path.join(self.media_dir, "*", gid))
         if dirs:
             shutil.rmtree(dirs[0])

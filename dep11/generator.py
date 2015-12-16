@@ -314,6 +314,8 @@ class DEP11Generator:
                     # we ignore packages without any interesting metadata here
                     if self._cache.is_ignored(pkid):
                         continue
+                    if not self._cache.package_exists(pkid):
+                        continue
 
                     self._cache.remove_package(pkid)
 
