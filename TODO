@@ -2,15 +2,13 @@
 
 === Known issues ===
 
- * If an icon is symlinked, we just ignore it at time, since the symlink itself
-   doesn't contain data.
-   We should either support that case or drop a meaningful error message
-   (Reference package: git-cola == 2.2.1-1)
  * The extractor can't get a list of files for certain .deb packages, see
    'qtwebkit-opensource-src/libqt5webkit5-dbg_5.4.2+dfsg-3_amd64.deb' as an example.
    Might be an issue with python-apt, some multiprocessing insanity leading to this
    happening sometimes, or could even be a problem with the package itself.
    This issue happens only rarely.
+ * Some icon-themes use an "unusual" directory layout, we need to read the theme index
+   file to process them. Examples are the Elementary and Breeze themes.
 
 === Planned Features ===
 
@@ -18,17 +16,9 @@
    `Languages` field.
  * Extract more metadata from things which do not have AppStream upstream
    metadata yet.
- * Expand the HTML pages to include more and more useful information.
+ * Add an icon-cache so we don't render SVG icons in themes multiple times.
 
 === Whishlist / Random Ideas ===
 
  * Maybe pre-filter for interesting packages based on Contents.gz
    to speed up the generator.
- * Could we maybe scan just one .deb package per architecture, and simply
-   reuse the previously extracted metadata for all other architectures, given
-   that checksums on the files relevent for the metadata match between archs?
-   Would need to be stored on the database somewhere, and might grow into a pretty
-   big storage of checksums, so do we want that?
-   Also, would something like this save a sufficient amount of disk-space for
-   screenshots/icons and improve the generator speed to make implementing this
-   functionality worth the effort?
