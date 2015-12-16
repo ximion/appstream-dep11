@@ -28,9 +28,9 @@ schema_header = Schema({
     Required('File'): All(str, 'DEP-11', msg="Must be \"DEP-11\""),
     Required('Origin'): All(str, Length(min=1)),
     Required('Version'): All(str, Match(r'(\d+\.?)+$'), msg="Must be a valid version number"),
-    Required('MediaBaseUrl'): All(str, Url()),
-    'Time': All(str, str),
-    'Priority': All(str, int),
+    Required('MediaBaseUrl'): All(Url()),
+    'Time': All(str),
+    'Priority': All(int),
 })
 
 schema_provides_dbus = Schema({
@@ -68,7 +68,7 @@ schema_translated = Schema({
 schema_image = Schema({
     Required('width'): All(int, Range(min=10)),
     Required('height'): All(int, Range(min=10)),
-    Required('url'): All(str, str, Length(min=1)),
+    Required('url'): All(str, Length(min=1)),
 })
 
 schema_screenshots = Schema({
@@ -82,7 +82,7 @@ schema_icon = Schema({
     'stock': All(str, Length(min=1)),
     'cached': All(str, Match(r'.*[.].*$'), msg='Icon entry is missing filename or extension'),
     'local': All(str, Match(r'^[\'"]?(?:/[^/]+)*[\'"]?$'), msg='Icon entry should be an absolute path'),
-    'remote': All(str, str, Length(min=1)),
+    'remote': All(str, Length(min=1)),
 })
 
 schema_url = Schema({
