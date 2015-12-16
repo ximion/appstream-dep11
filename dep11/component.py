@@ -180,6 +180,8 @@ class DEP11Component:
     def add_hint(self, tag, params=dict()):
         if hint_tag_is_error(tag):
             self._ignore = True
+        if isinstance(params, str):
+            params = {'msg': params}
 
         self._hints.append({'tag': tag, 'params': params})
 
@@ -218,6 +220,27 @@ class DEP11Component:
         b = bytes(data, 'utf-8')
         md5sum = hashlib.md5(b).hexdigest()
         self._srcdata_checksum = md5sum
+
+
+    def set_kind_from_string(self, s):
+        if not s:
+            self.kind = 'generic'
+        elif s == 'desktop':
+            self.kind = 'desktop-app'
+        elif s == 'desktop-app':
+            self.kind = 'desktop-app'
+        elif s == 'font':
+            self.kind = 'font'
+        elif s == 'codec':
+            self.kind = 'codec'
+        elif s == 'inputmethod':
+            self.kind = 'inputmethod'
+        elif s == 'addon':
+            self.kind = 'addon'
+        elif s == 'firmware':
+            self.kind = 'firmware'
+        else:
+            self.add_hint("metainfo-unknown-type", {'type': str(s)})
 
 
     @property

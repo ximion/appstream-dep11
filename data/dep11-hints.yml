@@ -96,9 +96,13 @@ screenshot-read-error:
   severity: warning
 
 metainfo-no-type:
-  text: Component has no type defined. A component type (desktop, input-method, generic, ...) is essential. This issue is likely a mistyped component
-        typename in the metainfo file, or an internal bug in the data extractor (componenty without <code>Type=</code> count as generic components automatically,
-        so unless there is a typo somewhere, no component should ever have no type).
+  text: Component has no type defined. A component type (desktop, input-method, generic, ...) is essential. This issue is likely
+        an internal bug in the data extractor.
+  severity: error
+
+metainfo-unknown-type:
+  text: The component-type '%(type)s' is unknown. Please make sure this component type is mentioned in the specification, and that the
+        <code>type=</code> property of the component root-node of the metainfo file does not contain a typing error.
   severity: error
 
 metainfo-no-name:

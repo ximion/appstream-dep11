@@ -76,7 +76,7 @@ def read_desktop_data(cpt, dcontent):
         return True
 
     # if we reached this step, we are dealing with a GUI desktop app
-    cpt.kind = 'desktop-app'
+    cpt.set_kind_from_string('desktop-app')
 
     for item in items:
         if len(item) != 2:
@@ -305,26 +305,16 @@ def read_appstream_upstream_xml(cpt, xml_content):
         # oddities and to simplify the parser in future. So we add a hint for that.
         cpt.add_hint("ancient-metadata")
 
-    key = root.attrib.get('type')
-    if key:
-        if key == 'desktop':
-            cpt.kind = 'desktop-app'
-        else:
-            # for other components like addon,codec, inputmethod etc
-            cpt.kind = root.attrib['type']
+    # set the type of our component
+    cpt.set_kind_from_string(root.attrib.get('type'))
 
     for subs in root:
         locale = _get_tag_locale(subs)
 
         if subs.tag == 'id':
             cpt.cid = subs.text
-            # legacy support
-            key = subs.attrib.get('type')
-            if key and not cpt.kind:
-                if key == 'desktop':
-                    cpt.kind = 'desktop-app'
-                else:
-                    cpt.kind = key
+            # INFO: legacy support, remove later
+            cpt.set_kind_from_string(subs.attrib.get('type'))
 
         elif subs.tag == "name":
             cpt.name[locale] = subs.text
