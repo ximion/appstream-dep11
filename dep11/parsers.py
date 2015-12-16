@@ -314,7 +314,9 @@ def read_appstream_upstream_xml(cpt, xml_content):
         if subs.tag == 'id':
             cpt.cid = subs.text
             # INFO: legacy support, remove later
-            cpt.set_kind_from_string(subs.attrib.get('type'))
+            tps = subs.attrib.get('type')
+            if tps:
+                cpt.set_kind_from_string(tps)
 
         elif subs.tag == "name":
             cpt.name[locale] = subs.text

@@ -574,7 +574,7 @@ class MetadataExtractor:
                     continue
 
                 cpt.set_srcdata_checksum_from_data(xml_content + pkgversion)
-                if cpt.kind == "desktop-app":
+                if cpt.kind == 'desktop-app':
                     data = mdata_raw.get(cpt.cid)
                     if not data:
                         cpt.add_hint("missing-desktop-file")

@@ -244,7 +244,7 @@ class DEP11Validator:
 
             # more tests for the icon key
             icon = doc.get('Icon')
-            if (doc['Type'] == "desktop-app") or (doc['Type'] == "web-app"):
+            if (doc['Type'] == 'desktop-app') or (doc['Type'] == 'web-app'):
                 if not doc.get('Icon'):
                     self.add_issue("[%s]: %s" % (docid, "Components containing an application must have an 'Icon' key."))
                     ret = False
