@@ -288,8 +288,11 @@ class DEP11Generator:
         for pkid in oldpkgs:
             pkid = str(pkid, 'utf-8')
             self._cache.remove_package(pkid)
-        # ensure we don't leave cruft
+
+        # ensure we don't leave cruft, drop orphaned components (cpts w/o pkg)
         self._cache.remove_orphaned_components()
+        # drop orphaned media (media w/o registered cpt)
+        self._cache.remove_orphaned_media()
 
 
     def remove_processed(self, suite_name):

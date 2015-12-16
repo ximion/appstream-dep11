@@ -47,6 +47,7 @@ class DataCache:
         # software is supposed to be run on 64bit machines anyway.
         self._map_size = pow(1024, 4)
 
+
     def open(self, cachedir):
         self._dbenv = lmdb.open(cachedir, max_dbs=4, map_size=self._map_size)
 
@@ -58,6 +59,7 @@ class DataCache:
         self._opened = True
         self.cache_dir = cachedir
         return True
+
 
     def close(self):
         if not self._opened:
@@ -71,16 +73,19 @@ class DataCache:
         self._statsdb = None
         self._opened = False
 
+
     def reopen(self):
         if self._opened:
             return
         self.close()
         self.open(self.cache_dir)
 
+
     def metadata_exists(self, global_id):
         gid = tobytes(global_id)
         with self._dbenv.begin(db=self._datadb) as txn:
             return txn.get(gid) != None
+
 
     def get_metadata(self, global_id):
         gid = tobytes(global_id)
@@ -90,15 +95,18 @@ class DataCache:
                     return None
                 return str(d, 'utf-8')
 
+
     def set_metadata(self, global_id, yaml_data):
         gid = tobytes(global_id)
         with self._dbenv.begin(db=self._datadb, write=True) as txn:
             txn.put(gid, tobytes(yaml_data))
 
+
     def set_package_ignore(self, pkgid):
         pkgid = tobytes(pkgid)
         with self._dbenv.begin(db=self._pkgdb, write=True) as txn:
             txn.put(pkgid, b'ignore')
+
 
     def get_cpt_gids_for_pkg(self, pkgid):
         pkgid = tobytes(pkgid)
@@ -112,6 +120,7 @@ class DataCache:
             gids = cs_str.split("\n")
             return gids
 
+
     def get_metadata_for_pkg(self, pkgid):
         gids = self.get_cpt_gids_for_pkg(pkgid)
         if not gids:
@@ -123,6 +132,7 @@ class DataCache:
             if d:
                 data += d
         return data
+
 
     def set_components(self, pkgid, cpts):
         # if the package has no components,
@@ -137,13 +147,7 @@ class DataCache:
         hints_str = ""
         for cpt in cpts:
             # check for ignore-reasons first, to avoid a database query
-            if cpt.has_ignore_reason():
-                # if we ignore the component, make sure the on-disk media cache
-                # does not contain traces of it (e.g. from downloading data or
-                # rendering screenshots before hitting an error)
-                if self._remove_media_for_gid(cpt.global_id):
-                    log.info("Removed cached media for: %s" % (cpt.global_id))
-            else:
+            if not cpt.has_ignore_reason():
                 if self.metadata_exists(cpt.global_id):
                     gids.append(cpt.global_id)
                 else:
@@ -168,6 +172,7 @@ class DataCache:
             with self._dbenv.begin(db=self._pkgdb, write=True) as txn:
                 txn.put(pkgid, b'seen')
 
+
     def get_hints(self, pkgid):
         pkgid = tobytes(pkgid)
         with self._dbenv.begin(db=self._hintsdb) as txn:
@@ -176,10 +181,12 @@ class DataCache:
                 hints = str(hints, 'utf-8')
             return hints
 
+
     def set_hints(self, pkgid, hints_yml):
         pkgid = tobytes(pkgid)
         with self._dbenv.begin(db=self._hintsdb, write=True) as txn:
             txn.put(pkgid, tobytes(hints_yml))
+
 
     def _cleanup_empty_dirs(self, d):
         parent = os.path.abspath(os.path.join(d, os.pardir))
@@ -193,6 +200,7 @@ class DataCache:
         if not os.listdir(parent):
             os.rmdir(parent)
 
+
     def remove_package(self, pkgid):
         log.debug("Dropping package: %s" % (pkgid))
         pkgid = tobytes(pkgid)
@@ -201,15 +209,18 @@ class DataCache:
         with self._dbenv.begin(db=self._hintsdb, write=True) as htxn:
             htxn.delete(pkgid)
 
+
     def is_ignored(self, pkgid):
         pkgid = tobytes(pkgid)
         with self._dbenv.begin(db=self._pkgdb) as txn:
             return txn.get(pkgid) == b'ignore'
 
+
     def package_exists(self, pkgid):
         pkgid = tobytes(pkgid)
         with self._dbenv.begin(db=self._pkgdb) as txn:
             return txn.get(pkgid) != None
+
 
     def get_packages_not_in_set(self, pkgset):
         res = set()
@@ -221,6 +232,7 @@ class DataCache:
                 if not str(key, 'utf-8') in pkgset:
                     res.add(key)
         return res
+
 
     def _remove_media_for_gid(self, gid):
         if not self.media_dir:
@@ -234,7 +246,12 @@ class DataCache:
             self._cleanup_empty_dirs(dirs[0])
             return True
 
+
     def remove_orphaned_components(self):
+        """
+        Remove components from the database, which have no package
+        assoicated with them.
+        """
         gid_pkg = dict()
 
         with self._dbenv.begin(db=self._pkgdb) as txn:
@@ -268,11 +285,47 @@ class DataCache:
                 with self._dbenv.begin(db=self._datadb, write=True) as dtxn:
                     dtxn.delete(tobytes(gid))
 
+
+    def remove_orphaned_media(self):
+        """
+        Remove media that exists on disk, but has no
+        component registered for it in the database.
+        """
+        if not self.media_dir:
+            return False
+
+        def list_cptdirs():
+            root_depth = self.media_dir.rstrip('/').count('/') - 1
+            for dirpath, dirs, files in os.walk(self.media_dir):
+                depth = dirpath.count('/') - root_depth
+                if depth < 6:
+                    # depth < 6 means we don't have enough parts for a full component-id
+                    continue
+                elif depth > 6:
+                    del dirs[:]
+                    continue
+
+                cptid = dirpath.replace(self.media_dir, "")
+                if cptid.startswith("/"):
+                    cptid = cptid[1:]
+                cptid = cptid[cptid.index('/')+1:]
+                if depth == 6:
+                    yield cptid.rstrip('/')
+
+        for cptid in list_cptdirs():
+            if not self.metadata_exists(cptid):
+                # on disk but not registered in cache?
+                # => remove it.
+                if self._remove_media_for_gid(cptid):
+                    log.info("Removed orphaned media: %s" % (cptid))
+
+
     def set_stats(self, timestamp, data):
         data = tobytes(data)
         tstamp = timestamp.to_bytes(10, byteorder='big')
         with self._dbenv.begin(db=self._statsdb, write=True) as txn:
             txn.put(tstamp, data)
+
 
     def get_stats(self):
         stats = dict()

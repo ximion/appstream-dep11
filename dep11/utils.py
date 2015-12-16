@@ -67,12 +67,12 @@ def build_cpt_global_id(cptid, checksum):
 
     gid = None
     parts = None
-    if cptid.startswith(("org.", "net.", "com.", "io.")):
+    if cptid.startswith(("org.", "net.", "com.", "io.", "edu.", "name.")):
         parts = cptid.split(".", 2)
     if parts and len(parts) > 2:
         gid = "%s/%s/%s/%s" % (parts[0].lower(), parts[1], parts[2], checksum)
     else:
-        gid = "%s/%s/%s" % (cptid[0].lower(), cptid, checksum)
+        gid = "%s/%s/%s/%s" % (cptid[0].lower(), cptid[:2].lower(), cptid, checksum)
 
     return gid
 
