@@ -189,16 +189,13 @@ class DataCache:
 
 
     def _cleanup_empty_dirs(self, d):
-        parent = os.path.abspath(os.path.join(d, os.pardir))
-        if not os.path.isdir(parent):
-            return
-        if not os.listdir(parent):
-            os.rmdir(parent)
-        parent = os.path.abspath(os.path.join(parent, os.pardir))
-        if not os.path.isdir(parent):
-            return
-        if not os.listdir(parent):
-            os.rmdir(parent)
+        parent = d
+        for n in range(0, 3):
+            parent = os.path.abspath(os.path.join(parent, os.pardir))
+            if not os.path.isdir(parent):
+                return
+            if not os.listdir(parent):
+                os.rmdir(parent)
 
 
     def remove_package(self, pkgid):
