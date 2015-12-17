@@ -49,7 +49,7 @@ class DataCache:
 
 
     def open(self, cachedir):
-        self._dbenv = lmdb.open(cachedir, max_dbs=4, map_size=self._map_size)
+        self._dbenv = lmdb.open(cachedir, max_dbs=4, map_size=self._map_size, metasync=False)
 
         self._pkgdb = self._dbenv.open_db(b'packages')
         self._hintsdb = self._dbenv.open_db(b'hints')
