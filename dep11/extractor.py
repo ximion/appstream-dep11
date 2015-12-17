@@ -584,7 +584,8 @@ class MetadataExtractor:
                         cpt.add_hint(data['error']['tag'], data['error']['params'])
                     else:
                         # we have a .desktop component, extend it with the associated .desktop data
-                        read_desktop_data(cpt, data['data'])
+                        # if a metainfo file exists, we should ignore NoDisplay flags in .desktop files.
+                        read_desktop_data(cpt, data['data'], ignore_nodisplay=True)
                         cpt.set_srcdata_checksum_from_data(xml_content + data['data'] + pkgversion)
                     del mdata_raw[cpt.cid]
 

@@ -105,6 +105,16 @@ def get_hint_severity(tag_name):
 __all__.append('get_hint_severity')
 
 
+def hint_tag_is_internal(tag_name):
+    tag = get_hint_tag_info(tag_name)
+    internal = tag.get('internal')
+    if internal:
+        return True
+    return False
+
+__all__.append('hint_tag_is_internal')
+
+
 def hint_tag_is_error(tag_name):
     tag = get_hint_tag_info(tag_name)
     severity = tag.get('severity')

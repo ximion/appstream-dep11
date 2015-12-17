@@ -30,7 +30,7 @@ from io import StringIO
 from dep11.component import DEP11Component, ProvidedItemType
 from dep11.utils import str_enc_dec
 
-def read_desktop_data(cpt, dcontent):
+def read_desktop_data(cpt, dcontent, ignore_nodisplay=False):
     '''
     Parses a .desktop file and sets ComponentData properties
     '''
@@ -48,7 +48,7 @@ def read_desktop_data(cpt, dcontent):
 
         try:
             nodisplay = df.get("Desktop Entry", "NoDisplay")
-            if nodisplay and nodisplay.lower() == "true":
+            if not ignore_nodisplay and nodisplay and nodisplay.lower() == "true":
                 # we ignore this .desktop file, shouldn't be displayed
                 cpt.add_hint("invisible-application")
                 return False
