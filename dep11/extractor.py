@@ -21,7 +21,6 @@ import fnmatch
 import urllib.request
 import ssl
 import yaml
-from apt_inst import DebFile
 from io import BytesIO
 
 import zlib
@@ -36,6 +35,7 @@ from dep11.component import DEP11Component, IconSize
 from dep11.parsers import read_desktop_data, read_appstream_upstream_xml
 from dep11.iconfinder import AbstractIconFinder
 from dep11.datacache import DataCache
+from dep11.debfile import DebFile
 from dep11.utils import build_pkg_id
 
 
@@ -95,50 +95,6 @@ class MetadataExtractor:
             return None
         path = os.path.join(basepath, gid, subdir)
         return path
-
-    def _get_deb_filelist(self, deb):
-        '''
-        Returns a list of all files in a deb package
-        '''
-        files = list()
-        if not deb:
-            return files
-        try:
-            deb.data.go(lambda item, data: files.append(item.name))
-        except SystemError as e:
-            raise e
-
-        return files
-
-    def _get_deb_file_data(self, deb, fname):
-        """
-        Extract data from a .deb file, following symlinks.
-        """
-
-        # strip / from the start of the filename (doesn't and shouldn't exist in .deb payload)
-        if fname.startswith('/'):
-                fname = fname[1:]
-
-        fdata = None
-        symlink_target = None
-        def handle_data(member, data):
-            nonlocal symlink_target, fdata
-            if member.issym():
-                symlink_target = member.linkname
-                if symlink_target.startswith('/'):
-                    # absolute path
-                    symlink_target = symlink_target[1:]
-                else:
-                    # relative path
-                    symlink_target = os.path.normpath(os.path.join(fname, '..', symlink_target))
-                return
-            fdata = data
-
-        deb.data.go(handle_data, fname)
-        if not fdata and symlink_target:
-            # we have a symlink, try to follow it
-            deb.data.go(handle_data, symlink_target)
-        return fdata
 
     def _scale_screenshot(self, imgsrc, cpt_export_path, cpt_scr_url):
         """
@@ -300,7 +256,7 @@ class MetadataExtractor:
         icon_data = None
         try:
             deb = DebFile(deb_fname)
-            icon_data = self._get_deb_file_data(deb, icon_path)
+            icon_data = deb.get_file_data(icon_path)
         except Exception as e:
             cpt.add_hint("deb-extract-error", {'fname': icon_name, 'pkg_fname': os.path.basename(deb_fname), 'error': str(e)})
             return False
@@ -513,7 +469,7 @@ class MetadataExtractor:
         pkgid = build_pkg_id(pkgname, pkgversion, pkgarch)
 
         try:
-            filelist = self._get_deb_filelist(deb)
+            filelist = deb.get_filelist()
         except Exception as e:
             log.error("List of files for '%s' could not be read" % (pkg_fname))
             filelist = None
@@ -540,7 +496,7 @@ class MetadataExtractor:
 
                 error = None
                 try:
-                    dcontent = str(self._get_deb_file_data(deb, meta_file), 'utf-8')
+                    dcontent = str(deb.get_file_data(meta_file), 'utf-8')
                 except Exception as e:
                     error = {'tag': "deb-extract-error",
                                 'params': {'fname': cpt_id, 'pkg_fname': os.path.basename(pkg_fname), 'error': str(e)}}
@@ -556,7 +512,7 @@ class MetadataExtractor:
                 cpt = DEP11Component(self._suite_name, self._archive_component, pkgname, pkgid)
 
                 try:
-                    xml_content = str(self._get_deb_file_data(deb, meta_file), 'utf-8')
+                    xml_content = str(deb.get_file_data(meta_file), 'utf-8')
                 except Exception as e:
                     # inability to read an AppStream XML file is a valid reason to skip the whole package
                     cpt.add_hint("deb-extract-error", {'fname': meta_file, 'pkg_fname': os.path.basename(pkg_fname), 'error': str(e)})
