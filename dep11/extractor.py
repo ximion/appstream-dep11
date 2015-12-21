@@ -462,7 +462,6 @@ class MetadataExtractor:
             deb = DebFile(pkg_fname)
         except Exception as e:
             log.error("Error reading deb file '%s': %s" % (pkg_fname, e))
-        if not deb:
             return list()
 
         # build the package unique identifier
