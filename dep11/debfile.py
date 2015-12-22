@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this program.
 
+import os
 import apt_inst
 
 class DebFile:
