@@ -106,10 +106,12 @@ class StatsGenerator:
                         counts.append(pdata[timestamp])
                     plt.plot(dates, counts, color=color, linestyle=style, marker=marker)
 
-                add_plot(vals['mcount'], color='green', style='solid', marker='o')
-                add_plot(vals['ecount'], color='red', style='solid', marker='o')
-                add_plot(vals['wcount'], color='orange', style='solid', marker='o')
-                add_plot(vals['icount'], color='cornflowerblue', style='solid', marker='o')
+                pstyle='solid'
+                pmarker='2'
+                add_plot(vals['mcount'], color='green', style=pstyle, marker=pmarker)
+                add_plot(vals['ecount'], color='red', style=pstyle, marker=pmarker)
+                add_plot(vals['wcount'], color='orange', style=pstyle, marker=pmarker)
+                add_plot(vals['icount'], color='cornflowerblue', style=pstyle, marker=pmarker)
 
                 plt.gcf().autofmt_xdate()
                 plt.savefig(os.path.join(out_dir, "%s-%s_stats.png" % (suite, component)), bbox_inches='tight')
