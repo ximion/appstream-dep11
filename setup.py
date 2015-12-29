@@ -18,6 +18,7 @@
 import os
 import sys
 from setuptools import setup, find_packages
+from dep11 import __version__
 
 data_target = os.path.join(sys.prefix, "share", "dep11")
 data_files = list()
@@ -28,7 +29,7 @@ for root, dirs, files in os.walk("data/"):
         data_files.append( (os.path.join(data_target, tdir), [os.path.join(root, fname)]) )
 
 setup(name = 'dep11',
-      version = '0.2',
+      version = __version__,
       description = 'DEP-11 metadata tools for Debian',
       url = 'https://github.com/ximion/dep11', # TODO: Move that to Debian infrastructure soon
       author = 'Matthias Klumpp',

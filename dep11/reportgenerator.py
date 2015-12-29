@@ -26,7 +26,7 @@ import time
 from jinja2 import Environment, FileSystemLoader
 import logging as log
 
-from dep11 import DataCache, build_cpt_global_id, build_pkg_id
+from dep11 import DataCache, build_cpt_global_id, build_pkg_id, __version__
 from dep11.component import dict_to_dep11_yaml
 from dep11.utils import get_data_dir, read_packages_dict_from_file, load_generator_config
 from dep11.hints import get_hint_tag_info
@@ -115,8 +115,11 @@ class ReportGenerator:
         j2_env = Environment(loader=FileSystemLoader(self._template_dir))
 
         template = j2_env.get_template(name)
-        content = template.render(root_url=self._html_url, distro=self._distro_name,
-                                    time=time.strftime("%Y-%m-%d %H:%M:%S %Z"), *args, **kwargs)
+        content = template.render(root_url = self._html_url,
+                                    distro = self._distro_name,
+                                    time = time.strftime("%Y-%m-%d %H:%M:%S %Z"),
+                                    generator_version = __version__,
+                                    *args, **kwargs)
         log.debug("Render: %s" % (out_path.replace(self._html_export_dir, "")))
         with open(out_path, 'wb') as f:
             f.write(bytes(content, 'utf-8'))
