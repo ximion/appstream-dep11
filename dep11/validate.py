@@ -43,6 +43,11 @@ schema_provides_firmware = Schema({
     Any('guid', 'fname'): All(str, Length(min=1))
 })
 
+schema_provides_font = Schema({
+    Required('file'): All(str, Length(min=1)),
+    Required('name'): All(str, Length(min=1)),
+})
+
 schema_provides = Schema({
     Any('mimetypes',
         'binaries',
@@ -50,7 +55,7 @@ schema_provides = Schema({
         'python3',
         'python2',
         'modaliases',
-        'fonts'): All(list, [str], Length(min=1)),
+        'fonts'): All(list, Length(min=1), [schema_provides_font]),
         'dbus': All(list, Length(min=1), [schema_provides_dbus]),
         'firmware': All(list, Length(min=1), [schema_provides_firmware]),
 })
