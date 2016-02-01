@@ -31,7 +31,7 @@ from gi.repository import Rsvg
 from PIL import Image
 import logging as log
 
-from dep11.component import DEP11Component, IconSize
+from dep11.component import DEP11Component, IconSize, IconType
 from dep11.parsers import read_desktop_data, read_appstream_upstream_xml
 from dep11.iconfinder import AbstractIconFinder
 from dep11.datacache import DataCache
@@ -248,7 +248,7 @@ class MetadataExtractor:
         if os.path.exists(icon_store_location):
             # we already extracted that icon, skip the extraction step
             # change scalable vector graphics to their .png extension
-            cpt.icon = icon_name
+            cpt.set_icon(IconType.CACHED, icon_name)
             return True
 
         # filepath is checked because icon can reside in another binary
@@ -266,7 +266,7 @@ class MetadataExtractor:
                                                'error': "Icon data was empty. The icon might be a symbolic link, please do not symlink icons "
                                                          "(instead place the icons in their appropriate directories in <code>/usr/share/icons/hicolor/</code>)."})
             return False
-        cpt.icon = icon_name
+        cpt.set_icon(IconType.CACHED, icon_name)
 
         if icon_name_orig.endswith(".svg"):
             svgicon = True
@@ -336,12 +336,12 @@ class MetadataExtractor:
         Searches for icon if absolute path to an icon
         is not given. Component with invalid icons are ignored
         '''
-        if not cpt.icon:
+        if not cpt.has_icon():
             # if we don't know an icon-name or path, just return without error
             return True
 
-        icon_str = cpt.icon
-        cpt.icon = None
+        icon_str = cpt.get_icon(IconType.CACHED)
+        cpt.set_icon(IconType.CACHED, None)
 
         all_icon_sizes = self._icon_sizes[:]
         all_icon_sizes.extend(self._large_icon_sizes)
@@ -595,7 +595,7 @@ class MetadataExtractor:
                     continue
 
             self._fetch_icon(cpt, export_path, pkg_fname, filelist)
-            if cpt.kind == 'desktop-app' and not cpt.icon:
+            if cpt.kind == 'desktop-app' and not cpt.has_icon():
                 cpt.add_hint("gui-app-without-icon", {'cid': cpt.cid})
             else:
                 self._fetch_screenshots(cpt, export_path)

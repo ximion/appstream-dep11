@@ -136,6 +136,18 @@ class ProvidedItemType:
     FIRMWARE = 'firmware'
 
 
+class IconType:
+    '''
+    Types an icon can be:
+     * cached: Stored in the AppStream icon cache
+     * stock: Found in an XDG icon theme (which is not hicolor)
+     * remote: On a remote location (usually a webserver)
+    '''
+    CACHED = 'cached'
+    STOCK = 'stock'
+    REMOTE = 'remote'
+
+
 class DEP11Component:
     '''
     Used to store the properties of component data. Used by MetadataExtractor
@@ -160,7 +172,7 @@ class DEP11Component:
         self._type = None
         self._name = dict()
         self._categories = None
-        self._icon = None
+        self._icons = dict()
         self._summary = dict()
         self._description = None
         self._screenshots = None
@@ -307,14 +319,6 @@ class DEP11Component:
         self._categories = val
 
     @property
-    def icon(self):
-        return self._icon
-
-    @icon.setter
-    def icon(self, val):
-        self._icon = val
-
-    @property
     def summary(self):
         return self._summary
 
@@ -423,6 +427,34 @@ class DEP11Component:
         if kind not in self.provides.keys():
             self.provides[kind] = list()
         self.provides[kind].append(value)
+
+
+    def get_icon(self, kind):
+        if not self._icons:
+            return self._icons
+        return self._icons.get(kind)
+
+
+    def set_icon(self, kind, value, width=None, height=None):
+        if kind == IconType.REMOTE:
+            self._icons[kind] = dict()
+            self._icons[kind]['width'] = int(width)
+            self._icons[kind]['height'] = int(height)
+            self._icons[kind]['url'] = value
+        else:
+            self._icons[kind] = value
+
+
+    def has_icon(self):
+        if not self._icons:
+            return False
+
+        for key, value in self._icons.items():
+            if value:
+                return True
+
+        self._icons = dict()
+        return False
 
 
     def _is_quoted(self, s):
@@ -544,8 +576,8 @@ class DEP11Component:
             d['Screenshots'] = self.screenshots
         if self.archs:
             d['Architectures'] = self.archs
-        if self.icon:
-            d['Icon'] = {'cached': self.icon}
+        if self._icons:
+            d['Icon'] = self._icons
         if self.url:
             d['Url'] = self.url
         if self.provides:

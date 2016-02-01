@@ -27,7 +27,7 @@ import lxml.etree as et
 from xml.sax.saxutils import escape
 from io import StringIO
 
-from dep11.component import DEP11Component, ProvidedItemType
+from dep11.component import DEP11Component, ProvidedItemType, IconType
 from dep11.utils import str_enc_dec
 
 def read_desktop_data(cpt, dcontent, ignore_nodisplay=False):
@@ -134,7 +134,7 @@ def read_desktop_data(cpt, dcontent, ignore_nodisplay=False):
             for val in value:
                 cpt.add_provided_item(ProvidedItemType.MIMETYPE, val)
         elif key == 'icon':
-            cpt.icon = value
+            cpt.set_icon(IconType.CACHED, value)
     return True
 
 
