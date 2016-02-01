@@ -53,6 +53,55 @@ def _decode_contents_line(line):
         return str(line, 'iso-8859-1')
 
 
+class Theme:
+    def __init__(self, name, deb_fname):
+        self.name = name
+        self.directories = list()
+
+        deb = DebFile(deb_fname)
+        indexdata = str(deb.get_file_data(os.path.join('usr/share/icons', name, 'index.theme')), 'utf-8')
+
+        index = ConfigParser(allow_no_value=True, interpolation=None)
+        index.optionxform = str   # don't lower-case option names
+        index.readfp(StringIO(indexdata))
+
+        for section in index.sections():
+            size = index.getint(section, 'Size', fallback=None)
+            context = index.get(section, 'Context', fallback=None)
+            if not size:
+                continue
+
+            themedir = {
+                'path': section,
+                'type': index.get(section, 'Type', fallback='Threshold'),
+                'size': size,
+                'minsize': index.getint(section, 'MinSize', fallback=size),
+                'maxsize': index.getint(section, 'MaxSize', fallback=size),
+                'threshold': index.getint(section, 'Threshold', fallback=2)
+            }
+
+            self.directories.append(themedir)
+
+
+    def _directory_matches_size(self, themedir, size):
+        if themedir['type'] == 'Fixed':
+            return size == themedir['size']
+        elif themedir['type'] == 'Scalable':
+            return themedir['minsize'] <= size <= themedir['maxsize']
+        elif themedir['type'] == 'Threshold':
+            return size - themedir['threshold'] <= size <= size + themedir['threshold']
+
+
+    def matching_icon_filenames(self, name, size):
+        '''
+        Returns an iteratable of possible icon filenames that match 'name' and 'size'.
+        '''
+        for themedir in self.directories:
+            if self._directory_matches_size(themedir, size):
+                for extension in ('png', 'svg', 'xpm'):
+                    yield 'usr/share/icons/{}/{}/{}.{}'.format(self.name, themedir['path'], name, extension)
+
+
 class ContentsListIconFinder(AbstractIconFinder):
     '''
     An implementation of an IconFinder, using a Contents-<arch>.gz file
@@ -64,19 +113,22 @@ class ContentsListIconFinder(AbstractIconFinder):
         self._component = archive_component
         self._mirror_dir = archive_mirror_dir
 
-        self._icons_data = list()
-        self._theme_data = dict()
-        self._packages_dict = dict()
+        self._packages = dict()
+        self._themes = list()
+        self._icon_files = dict()
 
         # Preseeded theme names.
+        # * prioritize hicolor, because that's where apps often install their upstream icon
+        # * then look at the theme given in the config file
         # * allow Breeze icon theme, needed to support KDE apps (they have no icon at all, otherwise...)
         # * in rare events, GNOME needs the same treatment, so special-case Adwaita as well
         # * We need at least one icon theme to provide the default XDG icon spec stock icons.
         #   A fair take would be to select them between KDE and GNOME at random, but for consistency and
         #   because everyone hates unpredictable behavior, we sort alphabetically and prefer Adwaita over Breeze.
-        self._theme_names = ["Adwaita", "breeze"]
+        self._theme_names = ['hicolor']
         if icon_theme:
             self._theme_names.append(icon_theme)
+        self._theme_names.extend(['Adwaita', 'breeze'])
 
         self._load_contents_data(arch_name, archive_component)
         # always load the "main" component too, as this holds the icon themes, usually
@@ -88,26 +140,10 @@ class ContentsListIconFinder(AbstractIconFinder):
         if os.path.isfile(universe_cfname):
             self._load_contents_data(arch_name, "universe")
 
-        # small optimization: We don't want to look for themes which don't exist
-        # on every icon query, so we remove the empty ones.
-        for theme in self._theme_names[:]:
-            if not self._theme_data.get(theme):
-                self._theme_names.remove(theme)
-                log.debug("Removing theme '%s' from seeded theme-names: Theme not found." % (theme))
-                continue
-
-            # Using multiprocessing, we would reprocess the theme index in every child process when it is needed.
-            # this turned out to be more expensive on bigger archives, while it is cheaper on smaller archives where
-            # the icon theme doesn't need to be accessed often.
-            # In general, it seems to be more desirable to process the theme data once and cache it, even if that means
-            # a decrease in performance in case themes aren't needed, since parsing it often in subprocesses is always
-            # a lot more expensive.
-            if not self._theme_data[theme].get('icons'):
-                    self._theme_data[theme]['icons'] = self._load_theme_index(theme, self._theme_data[theme]['pkg'])
-            theme_icons = self._theme_data[theme]['icons']
-            if not theme_icons:
-                log.error("Removing seeded theme: '%s'" % (theme))
-                self._theme_names.remove(theme)
+        loaded_themes = set(theme.name for theme in self._themes)
+        missing = set(self._theme_names) - loaded_themes
+        for theme in missing:
+            log.info("Removing theme '%s' from seeded theme-names: Theme not found." % (theme))
 
 
     def _load_contents_data(self, arch_name, component):
@@ -124,38 +160,35 @@ class ContentsListIconFinder(AbstractIconFinder):
         # we need information about the whole package, not only the package-name,
         # otherwise icon-theme support won't work and we also don't know where the
         # actual .deb files are stored.
-        new_pkgs = read_packages_dict_from_file(self._mirror_dir, self._suite_name, component, arch_name)
-        self._packages_dict.update(new_pkgs)
+        for name, pkg in read_packages_dict_from_file(self._mirror_dir, self._suite_name, component, arch_name).items():
+            pkg['filename'] = os.path.join(self._mirror_dir, pkg['filename'])
+            self._packages[name] = pkg
 
         # load and preprocess the large file.
         # we don't show mercy to memory here, we just want the icon lookup to be fast,
         # so we need to cache the data.
-        f = gzip.open(contents_fname, 'r')
-        for line in f:
-            line = _decode_contents_line(line)
-            if line.startswith("usr/share/icons/hicolor/") or line.startswith("usr/share/pixmaps/"):
-                self._icons_data.append(line)
-                continue
-
-            for theme in self._theme_names:
-                if self._theme_data.get(theme):
+        with gzip.open(contents_fname, 'r') as f:
+            for line in f:
+                line = _decode_contents_line(line)
+                fname, pkg = self._file_pkg_from_contents_line(line)
+                if not pkg:
                     continue
-                if line.startswith(os.path.join("usr/share/icons/", theme, "index.theme")):
-                    fname, pkg = self._file_pkg_from_contents_line(line)
-                    if not pkg:
-                        continue
 
-                    self._theme_data[theme] = dict()
-                    pkg['filename'] = os.path.join(self._mirror_dir, pkg['filename'])
-                    self._theme_data[theme]['pkg'] = pkg
+                if fname.startswith('usr/share/pixmaps/'):
+                    self._icon_files[fname] = pkg
+                    continue
 
-        f.close()
+                for name in self._theme_names:
+                    if fname == 'usr/share/icons/{}/index.theme'.format(name):
+                        self._themes.append(Theme(name, pkg['filename']))
+                    elif fname.startswith('usr/share/icons/{}'.format(name)):
+                        self._icon_files[fname] = pkg
 
 
     def _file_pkg_from_contents_line(self, raw_line):
         line = raw_line.strip(' \t\n\r')
         if not " " in line:
-            return None
+            return (None, None)
         parts = line.split(" ", 1)
         path = parts[0].strip()
         group_pkg = parts[1].strip()
@@ -163,199 +196,30 @@ class ContentsListIconFinder(AbstractIconFinder):
             pkgname = group_pkg.split("/", 1)[1].strip()
         else:
             pkgname = group_pkg
-        return (path, self._packages_dict.get(pkgname))
+        return (path, self._packages.get(pkgname))
 
 
-    def _load_theme_index(self, theme_name, theme_pkg):
-        """
-        Preprocess information from an XDG icon theme file
-        """
+    def _possible_icon_filenames(self, icon, size):
+        for theme in self._themes:
+            for fname in theme.matching_icon_filenames(icon, size):
+                yield fname
 
-        try:
-            deb = DebFile(theme_pkg['filename'])
-        except Exception as e:
-            log.error("Error reading icon-theme deb file '%s': %s" % (theme_pkg['filename'], e))
-            return None
+        for extension in ('png', 'svg', 'xpm'):
+            yield 'usr/share/pixmaps/{}.{}'.format(icon, extension)
 
-        try:
-            filelist = deb.get_filelist()
-        except Exception as e:
-            log.error("List of files for icon-theme '%s' could not be read" % (theme_pkg['filename']))
-            filelist = None
-
-        tf = ConfigParser(allow_no_value=True, interpolation=None)
-        try:
-            indexdata = deb.get_file_data(os.path.join("usr/share/icons", theme_name, "index.theme"))
-            indexdata = str(indexdata, 'utf-8')
-            tf.readfp(StringIO(indexdata))
-        except Exception as e:
-            log.error("Unable to read theme index of icon-theme '%s': %s" % (theme_pkg['filename'], str(e)))
-            return None
-
-        icon_info = dict()
-        icon_info['files'] = set(filelist)
-        def evaluate_size(size, real_size, section):
-            if size != 'scalable':
-                if real_size < size:
-                    # we don't do upscaling of images
-                    return
-            if not icon_info.get(size):
-                icon_info[size] = dict()
-
-            old_real_size = icon_info[size].get('real_size')
-            if not old_real_size:
-                old_real_size = 0
-            if old_real_size == size:
-                # we already have our perfect size
-                return
-            if old_real_size < real_size:
-                icon_info[size]['section'] = section
-                icon_info[size]['real_size'] = real_size
-
-        for sec in tf.sections():
-            try:
-                context = tf.get(sec, "Context")
-                tp = tf.get(sec, "Type")
-                size = tf.get(sec, "Size")
-            except:
-                continue
-            if not context or not size:
-                continue
-            if context.lower() != "applications":
-                continue
-            try:
-                size = int(size)
-            except ValueError:
-                continue
-
-            if tp.lower() == "fixed":
-                evaluate_size(64, size, sec)
-                evaluate_size(128, size, sec)
-            elif tp.lower() == "scalable":
-                evaluate_size('scalable', size, sec)
-
-        return icon_info
-
-
-    def _search_icon_in_theme(self, size, icon_name, theme_name=None):
-        """
-        Find icon in the archive contents, in hicolor or in
-        a specific theme.
-        """
-
-        files_list = list()
-        valid = None
-        if theme_name:
-            if not size:
-                # we don't search for icons with unknown size in themes
-                return None
-
-            theme_icons = self._theme_data[theme_name]['icons']
-            if not theme_icons:
-                return None
-
-            files_list = theme_icons['files']
-            if not files_list:
-                # no file-list: This could mean other keys in the
-                # theme_icons dict aren't set as well, so we shouldn't
-                # continue here.
-                # Also, without icons, there's nothing to do for us anyway.
-                return None
-
-            info = None
-            if size == 'scalable':
-                info = theme_icons.get('scalable')
-            else:
-                info = theme_icons.get(int(size))
-            if not info:
-                return None
-
-            # prepare selecting icon from a theme
-            icon_fname_noext = "usr/share/icons/" + theme_name + "/" + info['section'] + "/" + icon_name
-            for ext in (".png", ".svg", ".svgz"):
-                icon_fname = icon_fname_noext+ext
-                if icon_fname in files_list:
-                    # for themes we already stored the absolute .deb file path, no need to os.path.join it
-                    deb_fname = self._theme_data[theme_name]['pkg']['filename']
-                    return {'icon_fname': icon_fname, 'deb_fname': deb_fname}
-
-        else:
-            size_str = str(size)
-            # prepare searching for icon in the global hicolor theme
-            files_list = self._icons_data
-            if size_str:
-                valid = re.compile('^usr/share/icons/.*/' + size_str + '/apps/' + icon_name + '[\.png|\.svg|\.svgz]')
-            else:
-                valid = re.compile('^usr/share/pixmaps/' + icon_name + '.png')
-
-            # we can't find an icon if the file-list is empty
-            if not files_list:
-                    return None
-
-            res = list()
-            for line in files_list:
-                if valid.match(line):
-                    res.append(line)
-
-            for line in res:
-                fname, pkg = self._file_pkg_from_contents_line(line)
-                if not pkg:
-                    continue
-
-                deb_fname = os.path.join(self._mirror_dir, pkg['filename'])
-                return {'icon_fname': fname, 'deb_fname': deb_fname}
-
-        return None
-
-    def _search_icon(self, size, icon_name):
-        """
-        Find icon files in the archive which match a size.
-        """
-
-        # always search for icon in hicolor theme or in non-theme locations first
-        icon = self._search_icon_in_theme(size, icon_name)
-        if icon:
-            return icon
-
-        # then test the themes
-        for theme in self._theme_names:
-            icon = self._search_icon_in_theme(size, icon_name, theme)
-            if icon:
-                return icon;
-
-        return icon
 
     def find_icons(self, package, icon, sizes):
         '''
-        Tries to find the best possible icon available
+        Looks up 'icon' with 'size' in popular icon themes according to the XDG
+        icon theme spec.
         '''
         size_map_flist = dict()
 
         for size in sizes:
-            flist = self._search_icon(size, icon)
-            if flist:
-                size_map_flist[size] = flist
-
-        if not IconSize(64) in size_map_flist:
-            # see if we can find a scalable vector graphic as icon
-            # we assume "64x64" as size here, and resize the vector
-            # graphic later.
-            flist = self._search_icon("scalable", icon)
-
-            if flist:
-                size_map_flist[IconSize(64)] = flist
-            else:
-                if IconSize(128) in size_map_flist:
-                    # Lots of software doesn't have a 64x64 icon, but a 128x128 icon.
-                    # We just implement this small hack to resize the icon to the
-                    # appropriate size.
-                    size_map_flist[IconSize(64)] = size_map_flist[IconSize(128)]
-                else:
-                    # some software doesn't store icons in sized XDG directories.
-                    # catch these here, and assume that the size is 64x64
-                    flist = self._search_icon(None, icon)
-                    if flist:
-                        size_map_flist[IconSize(64)] = flist
+            for fname in self._possible_icon_filenames(icon, size):
+                pkg = self._icon_files.get(fname)
+                if pkg:
+                    size_map_flist[size] = { 'icon_fname': fname, 'deb_fname': pkg['filename'] }
 
         return size_map_flist
 
