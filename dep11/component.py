@@ -615,7 +615,7 @@ class Component:
         if self.screenshots:
             for shot in self.screenshots:
                 if shot.caption:
-                    shot.caption = self._cleanup(caption)
+                    shot.caption = self._cleanup(shot.caption)
 
         # validate the basics (if we don't ignore this already)
         if not self.has_ignore_reason():
