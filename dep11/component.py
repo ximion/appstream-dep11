@@ -88,6 +88,10 @@ class IconSize:
         return "%ix%i" % (self.size, self.size)
 
 
+    def __repr__(self):
+        return "%ix%i" % (self.size, self.size)
+
+
     def __int__(self):
         return self.size
 
@@ -111,10 +115,30 @@ class IconSize:
             return self.size < other.size
         return self.size < other
 
+    def __le__(self, other):
+        if type(other) is IconSize:
+            return self.size <= other.size
+        return self.size < other
+
     def __gt__(self, other):
         if type(other) is IconSize:
             return self.size > other.size
         return self.size > other
+
+    def __ge__(self, other):
+        if type(other) is IconSize:
+            return self.size >= other.size
+        return self.size > other
+
+    def __add__(self, other):
+        if type(other) is IconSize:
+            return self.size + other.size
+        return self.size + other
+
+    def __sub__(self, other):
+        if type(other) is IconSize:
+            return self.size * other.size
+        return self.size * other
 
     def __hash__(self):
         return self.size
