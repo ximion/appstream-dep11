@@ -326,6 +326,21 @@ class DEP11Generator:
         self._cache.remove_orphaned_components()
 
 
+    def forget_package(self, pkid):
+        '''
+        Delete all information about a single package in the cache.
+        '''
+
+        if not self._cache.package_exists(pkid):
+            print("Package with ID '%s' does not exist." % (pkid))
+            return
+
+        self._cache.remove_package(pkid)
+
+        # drop all components which don't have packages
+        self._cache.remove_orphaned_components()
+
+
 def main():
     """Main entry point of generator"""
 
@@ -340,6 +355,7 @@ def main():
     parser.usage += " cleanup [CONFDIR]             - Remove unused data from the cache and expire media.\n"
     parser.usage += " update-reports [CONFDIR] [SUITE]   - Re-generate the metadata and issue HTML pages and update statistics.\n"
     parser.usage += " remove-processed [CONFDIR] [SUITE] - Remove information about processed or failed components.\n"
+    parser.usage += " forget [CONFDIR] [PKID]            - Forget a single package and data associated with it.\n"
 
     args = parser.parse_args()
     command = args.subcommand
@@ -398,5 +414,16 @@ def main():
             sys.exit(2)
 
         gen.remove_processed(params[1])
+    elif command == "forget":
+        if len(params) != 2:
+            print("Invalid number of arguments: You need to specify a DEP-11 data dir and package-id.")
+            sys.exit(1)
+        gen = DEP11Generator()
+        ret = gen.initialize(params[0])
+        if not ret:
+            print("Initialization failed, can not continue.")
+            sys.exit(2)
+
+        gen.forget_package(params[1])
     else:
         print("Run with --help for a list of available command-line options!")
