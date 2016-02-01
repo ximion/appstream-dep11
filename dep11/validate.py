@@ -83,11 +83,17 @@ schema_screenshots = Schema({
     'caption': All(dict, Length(min=1), schema_translated),
 })
 
+schema_icon_local = Schema({
+    Required('width'): All(int, Range(min=10)),
+    Required('height'): All(int, Range(min=10)),
+    Required('path'): All(str, Match(r'^[\'"]?(?:/[^/]+)*[\'"]?$'), msg='Local icon entry must be an absolute path'),
+})
+
 schema_icon = Schema({
     'stock': All(str, Length(min=1)),
     'cached': All(str, Match(r'.*[.].*$'), msg='Icon entry is missing filename or extension'),
-    'local': All(str, Match(r'^[\'"]?(?:/[^/]+)*[\'"]?$'), msg='Icon entry should be an absolute path'),
-    'remote': All(str, Length(min=1)),
+    'local': All(dict, Length(min=1), schema_icon_local),
+    'remote': All(dict, Length(min=1), schema_image),
 })
 
 schema_url = Schema({
