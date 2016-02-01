@@ -54,8 +54,8 @@ schema_provides = Schema({
         'libraries',
         'python3',
         'python2',
-        'modaliases',
-        'fonts'): All(list, Length(min=1), [schema_provides_font]),
+        'modaliases'): All(list, [str], Length(min=1)),
+        'fonts': All(list, Length(min=1), [schema_provides_font]),
         'dbus': All(list, Length(min=1), [schema_provides_dbus]),
         'firmware': All(list, Length(min=1), [schema_provides_firmware]),
 })
