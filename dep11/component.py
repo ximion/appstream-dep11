@@ -148,6 +148,67 @@ class IconType:
     REMOTE = 'remote'
 
 
+class Screenshot:
+    '''
+    Representation of a DEP-11 screenshot.
+
+    '''
+
+    def __init__(self):
+        self._caption = dict()
+        self._source_img = dict()
+        self._thumbnails = list()
+        self._default = False
+
+
+    def set_source_image(self, url, width, height):
+        self._source_img['width'] = int(width)
+        self._source_img['height'] = int(height)
+        self._source_img['url'] = url
+
+
+    def add_thumbnail(self, url, width, height):
+        thumb = {'width': int(width), 'height': int(height), 'url': url}
+        self._thumbnails.append(thumb)
+
+
+    def has_source_image(self):
+        return self._source_img.get('url') != None
+
+
+    def to_dict(self):
+        d = dict()
+        if self.default:
+            d['default'] = True
+        if self.caption:
+            d['caption'] = self.caption
+        if self._thumbnails:
+            d['thumbnails'] = self._thumbnails
+        d['source-image'] = self._source_img
+        return d
+
+
+    @property
+    def source_image(self):
+        return self._source_img
+
+    @property
+    def caption(self):
+        return self._caption
+
+    @caption.setter
+    def caption(self, val):
+        self._caption = val
+
+    @property
+    def default(self):
+        return self._default
+
+    @default.setter
+    def default(self, val):
+        self._default = bool(val)
+
+
 class DEP11Component:
     '''
     Used to store the properties of component data. Used by MetadataExtractor
@@ -512,7 +573,7 @@ class DEP11Component:
         check_for_template(self.developer_name, 'DeveloperName')
         if self.screenshots:
             for i, shot in enumerate(self.screenshots):
-                caption = shot.get('caption')
+                caption = shot.caption
                 if caption:
                     check_for_template(self.developer_name, "Screenshots/%i/caption" % (i))
 
@@ -530,7 +591,7 @@ class DEP11Component:
         self.developer_name = self._cleanup(self.developer_name)
         if self.screenshots:
             for shot in self.screenshots:
-                caption = shot.get('caption')
+                caption = shot.caption
                 if caption:
                     shot['caption'] = self._cleanup(caption)
 
@@ -573,7 +634,7 @@ class DEP11Component:
         if self.keywords:
             d['Keywords'] = self.keywords
         if self.screenshots:
-            d['Screenshots'] = self.screenshots
+            d['Screenshots'] = list(map(lambda scr: scr.to_dict(), self.screenshots))
         if self.archs:
             d['Architectures'] = self.archs
         if self._icons:

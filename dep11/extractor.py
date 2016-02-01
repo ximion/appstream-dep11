@@ -31,7 +31,7 @@ from gi.repository import Rsvg
 from PIL import Image
 import logging as log
 
-from dep11.component import DEP11Component, IconSize, IconType
+from dep11.component import DEP11Component, Screenshot, IconSize, IconType
 from dep11.parsers import read_desktop_data, read_appstream_upstream_xml
 from dep11.iconfinder import AbstractIconFinder
 from dep11.datacache import DataCache
@@ -96,13 +96,12 @@ class MetadataExtractor:
         path = os.path.join(basepath, gid, subdir)
         return path
 
-    def _scale_screenshot(self, imgsrc, cpt_export_path, cpt_scr_url):
+    def _scale_screenshot(self, shot, imgsrc, cpt_export_path, cpt_scr_url):
         """
         Scale images in three sets of two-dimensions
         (752x423 624x351 and 112x63)
         """
 
-        thumbnails = list()
         name = os.path.basename(imgsrc)
         sizes = ['1248x702', '752x423', '624x351', '112x63']
         for size in sizes:
@@ -114,10 +113,7 @@ class MetadataExtractor:
                 os.makedirs(newpath)
             newimg.save(os.path.join(newpath, name))
             url = "%s/%s/%s" % (cpt_scr_url, size, name)
-            thumbnails.append({'url': url, 'height': int(ht),
-                               'width': int(wd)})
-
-        return thumbnails
+            shot.add_thumbnail(url, width=wd, height=ht)
 
     def _fetch_screenshots(self, cpt, cpt_export_path, cpt_public_url=""):
         '''
@@ -134,7 +130,7 @@ class MetadataExtractor:
         cnt = 1
         for shot in cpt.screenshots:
             # cache some locations which we need later
-            origin_url = shot['source-image']['url']
+            origin_url = shot.source_image['url']
             if not origin_url:
                 # url empty? skip this screenshot
                 continue
@@ -177,9 +173,7 @@ class MetadataExtractor:
             try:
                 img = Image.open(imgsrc)
                 wd, ht = img.size
-                shot['source-image']['width'] = wd
-                shot['source-image']['height'] = ht
-                shot['source-image']['url'] = os.path.join(base_url, "source", "scr-%s.png" % (str(cnt)))
+                shot.set_source_image(os.path.join(base_url, "source", "scr-%s.png" % (str(cnt))), width=wd, height=ht)
                 del img
             except Exception as e:
                 error_msg = str(e)
@@ -190,9 +184,7 @@ class MetadataExtractor:
                 success = False
                 continue
 
-            # scale_screenshots will return a list of
-            # dicts with {height,width,url}
-            shot['thumbnails'] = self._scale_screenshot(imgsrc, path, base_url)
+            self._scale_screenshot(shot, imgsrc, path, base_url)
             shots.append(shot)
             cnt = cnt + 1
 

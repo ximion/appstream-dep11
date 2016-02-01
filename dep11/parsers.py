@@ -27,7 +27,7 @@ import lxml.etree as et
 from xml.sax.saxutils import escape
 from io import StringIO
 
-from dep11.component import DEP11Component, ProvidedItemType, IconType
+from dep11.component import DEP11Component, Screenshot, ProvidedItemType, IconType
 from dep11.utils import str_enc_dec
 
 def read_desktop_data(cpt, dcontent, ignore_nodisplay=False):
@@ -205,17 +205,18 @@ def _parse_screenshots_tag(subs):
     for usubs in subs:
         # for one screeshot tag
         if usubs.tag == 'screenshot':
-            screenshot = dict()
+            shot = Screenshot()
             attr_dic = usubs.attrib
             if attr_dic.get('type'):
                 if attr_dic['type'] == 'default':
-                    screenshot['default'] = True
+                    shot.default = True
 
             # handle pre-0.6 spec screenshot notations
             url = usubs.text.strip() if usubs.text else None
             if url:
-                screenshot['source-image'] = {'url': url}
-                shots.append(screenshot)
+                # we do not know width or height yet, that information will be added later
+                shot.set_source_image(url, 0, 0)
+                shots.append(shot)
                 continue
 
             # else look for captions and image tag
@@ -229,16 +230,13 @@ def _parse_screenshots_tag(subs):
                     else:
                         key = 'C'
 
-                    if screenshot.get('caption'):
-                        screenshot['caption'][key] = str_enc_dec(tags.text)
-                    else:
-                        screenshot['caption'] = {key: str_enc_dec(tags.text)}
+                    shot.caption[key] = str_enc_dec(tags.text)
                 if tags.tag == 'image':
-                    screenshot['source-image'] = {'url': tags.text}
+                    shot.set_source_image(tags.text, 0, 0)
 
             # only add the screenshot if we have a source image
-            if screenshot.get ('source-image'):
-                shots.append(screenshot)
+            if shot.has_source_image():
+                shots.append(shot)
 
     return shots
 
