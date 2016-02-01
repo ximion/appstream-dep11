@@ -31,7 +31,7 @@ from gi.repository import Rsvg
 from PIL import Image
 import logging as log
 
-from dep11.component import DEP11Component, Screenshot, IconSize, IconType
+from dep11.component import Component, Screenshot, IconSize, IconType
 from dep11.parsers import read_desktop_data, read_appstream_upstream_xml
 from dep11.iconfinder import AbstractIconFinder
 from dep11.datacache import DataCache
@@ -446,7 +446,7 @@ class MetadataExtractor:
     def _process_pkg(self, pkgname, pkgversion, pkgarch, pkg_fname, metainfo_files=None):
         """
         Reads the metadata from the xml file and the desktop files.
-        Returns a list of processed DEP11Component objects.
+        Returns a list of processed dep11.Component objects.
         """
 
         deb = None
@@ -466,7 +466,7 @@ class MetadataExtractor:
             filelist = None
 
         if not filelist:
-            cpt = DEP11Component(self._suite_name, self._archive_component, pkgname, pkgid)
+            cpt = Component(self._suite_name, pkgname, pkgid)
             cpt.add_hint("deb-filelist-error", {'pkg_fname': os.path.basename(pkg_fname)})
             return [cpt]
 
@@ -500,7 +500,7 @@ class MetadataExtractor:
         for meta_file in metainfo_files:
             if meta_file.endswith(".xml") and meta_file.startswith("usr/share/appdata"):
                 xml_content = None
-                cpt = DEP11Component(self._suite_name, self._archive_component, pkgname, pkgid)
+                cpt = Component(self._suite_name, pkgname, pkgid)
 
                 try:
                     xml_content = str(deb.get_file_data(meta_file), 'utf-8')
@@ -540,7 +540,7 @@ class MetadataExtractor:
         for mid, mdata in mdata_raw.items():
             if mid.endswith(".desktop"):
                 # We have a .desktop file
-                cpt = DEP11Component(self._suite_name, self._archive_component, pkgname, pkgid)
+                cpt = Component(self._suite_name, pkgname, pkgid)
                 cpt.cid = mid
 
                 if mdata['error']:
@@ -597,13 +597,13 @@ class MetadataExtractor:
     def process(self, pkgname, pkgversion, pkgarch, pkg_fname, metainfo_files=None):
         """
         Reads the metadata from the xml file and the desktop files.
-        Returns a list of DEP11Component objects, and writes the result to the cache.
+        Returns a list of dep11.Component objects, and writes the result to the cache.
         """
 
         cpts = self._process_pkg(pkgname, pkgversion, pkgarch, pkg_fname, metainfo_files)
 
         # build the package unique identifier (again)
-        # NOTE: We could also get this from any returned DEP11Component (pkid property)
+        # NOTE: We could also get this from any returned component (pkid property)
         pkgid = build_pkg_id(pkgname, pkgversion, pkgarch)
 
         # write data to cache

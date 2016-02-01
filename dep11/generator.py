@@ -29,7 +29,7 @@ import multiprocessing as mp
 import logging as log
 
 from dep11 import MetadataExtractor, DataCache, build_cpt_global_id, build_pkg_id
-from dep11.component import DEP11Component, get_dep11_header, dict_to_dep11_yaml
+from dep11.component import Component, get_dep11_header, dict_to_dep11_yaml
 from dep11.iconfinder import ContentsListIconFinder
 from dep11.utils import get_data_dir, read_packages_dict_from_file, load_generator_config
 from dep11.hints import get_hint_tag_info

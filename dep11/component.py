@@ -209,18 +209,17 @@ class Screenshot:
         self._default = bool(val)
 
 
-class DEP11Component:
+class Component:
     '''
     Used to store the properties of component data. Used by MetadataExtractor
     '''
 
-    def __init__(self, suitename, component, pkg, pkid=None):
+    def __init__(self, suitename, pkgname, pkid=None):
         '''
         Used to set the properties to None.
         '''
         self._suitename = suitename
-        self._component = component
-        self._pkg = pkg
+        self._pkg = pkgname
         self._pkid = pkid
 
         # properties
