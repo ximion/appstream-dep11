@@ -590,9 +590,8 @@ class Component:
         self.developer_name = self._cleanup(self.developer_name)
         if self.screenshots:
             for shot in self.screenshots:
-                caption = shot.caption
-                if caption:
-                    shot['caption'] = self._cleanup(caption)
+                if shot.caption:
+                    shot.caption = self._cleanup(caption)
 
         # validate the basics (if we don't ignore this already)
         if not self.has_ignore_reason():
