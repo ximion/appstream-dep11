@@ -180,7 +180,7 @@ class MetadataExtractor:
                 shot['source-image']['width'] = wd
                 shot['source-image']['height'] = ht
                 shot['source-image']['url'] = os.path.join(base_url, "source", "scr-%s.png" % (str(cnt)))
-                img.close()
+                del img
             except Exception as e:
                 error_msg = str(e)
                 # filter out the absolute path: we shouldn't add it
