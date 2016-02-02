@@ -190,6 +190,10 @@ class DEP11Generator:
                         continue
                     pkgs_todo[pkid] = pkg
 
+                if not pkgs_todo:
+                    log.info("Skipped %s/%s/%s, no new packages to process." % (suite_name, component, arch))
+                    continue
+
                 # set up metadata extractor
                 icon_theme = suite.get('useIconTheme')
                 iconf = ContentsListIconFinder(suite_name, component, arch, self._archive_root,
