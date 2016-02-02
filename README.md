@@ -63,7 +63,7 @@ Key | Comment
 ArchiveRoot | A local URL to the mirror of your archive, containing the dists/ and pool/ directories
 MediaBaseUrl | The http or https URL which should be used in the generated metadata to fetch media like screenshots or icons
 HtmlBaseUrl | The http or https URL to the web location where the HTML hints will be published. (This setting is optional, but recommended)
-Suites | A list of suites which should be recognized by the generator. Each suite has the components and architectures which should be seached for metadata as children.
+Suites | A list of suites which should be recognized by the generator. Each suite has the components and architectures which should be seached for metadata as children. If `baseSuite` is set, the 'main' component of that suite is also considered for providing icon data for packages in this suite.
 
 After the config file has been written, you can generate the metadata as follows:
 ```Bash

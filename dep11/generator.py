@@ -192,7 +192,8 @@ class DEP11Generator:
 
                 # set up metadata extractor
                 icon_theme = suite.get('useIconTheme')
-                iconf = ContentsListIconFinder(suite_name, component, arch, self._archive_root, icon_theme)
+                iconf = ContentsListIconFinder(suite_name, component, arch, self._archive_root,
+                                               icon_theme, base_suite_name=suite.get('baseSuite'))
                 mde = MetadataExtractor(suite_name,
                                 component,
                                 self._icon_sizes,

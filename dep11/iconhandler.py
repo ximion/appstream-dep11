@@ -104,8 +104,7 @@ class ContentsListIconFinder(AbstractIconFinder):
     present in Debian archive mirrors to find icons.
     '''
 
-    def __init__(self, suite_name, archive_component, arch_name, archive_mirror_dir, icon_theme=None):
-        self._suite_name = suite_name
+    def __init__(self, suite_name, archive_component, arch_name, archive_mirror_dir, icon_theme=None, base_suite_name=None):
         self._component = archive_component
         self._mirror_dir = archive_mirror_dir
 
@@ -126,15 +125,19 @@ class ContentsListIconFinder(AbstractIconFinder):
             self._theme_names.append(icon_theme)
         self._theme_names.extend(['Adwaita', 'breeze'])
 
-        self._load_contents_data(arch_name, archive_component)
+        # load the 'main' component of the base suite, in case the given suite depends on it
+        if base_suite_name:
+            self._load_contents_data(arch_name, base_suite_name, 'main')
+
+        self._load_contents_data(arch_name, suite_name, archive_component)
         # always load the "main" component too, as this holds the icon themes, usually
-        self._load_contents_data(arch_name, "main")
+        self._load_contents_data(arch_name, suite_name, "main")
 
         # FIXME: On Ubuntu, also include the universe component to find more icons, since
         # they have split the default iconsets for KDE/GNOME apps between main/universe.
-        universe_cfname = os.path.join(self._mirror_dir, "dists", self._suite_name, "universe", "Contents-%s.gz" % (arch_name))
+        universe_cfname = os.path.join(self._mirror_dir, "dists", suite_name, "universe", "Contents-%s.gz" % (arch_name))
         if os.path.isfile(universe_cfname):
-            self._load_contents_data(arch_name, "universe")
+            self._load_contents_data(arch_name, suite_name, "universe")
 
         loaded_themes = set(theme.name for theme in self._themes)
         missing = set(self._theme_names) - loaded_themes
@@ -142,21 +145,21 @@ class ContentsListIconFinder(AbstractIconFinder):
             log.info("Removing theme '%s' from seeded theme-names: Theme not found." % (theme))
 
 
-    def _load_contents_data(self, arch_name, component):
+    def _load_contents_data(self, arch_name, suite_name, component):
         contents_basename = "Contents-%s.gz" % (arch_name)
-        contents_fname = os.path.join(self._mirror_dir, "dists", self._suite_name, component, contents_basename)
+        contents_fname = os.path.join(self._mirror_dir, "dists", suite_name, component, contents_basename)
 
         # Ubuntu does not place the Contents file in a component-specific directory,
         # so fall back to the global one.
         if not os.path.isfile(contents_fname):
-            path = os.path.join(self._mirror_dir, "dists", self._suite_name, contents_basename)
+            path = os.path.join(self._mirror_dir, "dists", suite_name, contents_basename)
             if os.path.isfile(path):
                 contents_fname = path
 
         # we need information about the whole package, not only the package-name,
         # otherwise icon-theme support won't work and we also don't know where the
         # actual .deb files are stored.
-        for name, pkg in read_packages_dict_from_file(self._mirror_dir, self._suite_name, component, arch_name).items():
+        for name, pkg in read_packages_dict_from_file(self._mirror_dir, suite_name, component, arch_name).items():
             pkg['filename'] = os.path.join(self._mirror_dir, pkg['filename'])
             self._packages[name] = pkg
 
