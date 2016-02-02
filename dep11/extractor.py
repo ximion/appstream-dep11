@@ -57,11 +57,8 @@ class MetadataExtractor:
         self._dcache = dcache
         self.write_to_cache = True
 
-        self._icon_ext_allowed = ('.png', '.svg', '.xcf', '.gif', '.svgz', '.jpg')
-
         if icon_finder:
             self._icon_finder = icon_finder
-            self._icon_finder.set_allowed_icon_extensions(self._icon_ext_allowed)
         else:
             self._icon_finder = AbstractIconFinder(self._suite_name, self._archive_component)
 
@@ -192,7 +189,7 @@ class MetadataExtractor:
         return success
 
     def _icon_allowed(self, icon):
-        if icon.endswith(self._icon_ext_allowed):
+        if icon.endswith(('.png', '.svg', '.xpm', '.gif', '.svgz', '.jpg', '.ico')):
             return True
         return False
 

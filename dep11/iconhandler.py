@@ -42,10 +42,6 @@ class AbstractIconFinder:
         return None
 
 
-    def set_allowed_icon_extensions(self, exts):
-        pass
-
-
 def _decode_contents_line(line):
     try:
         return str(line, 'utf-8')
@@ -98,7 +94,7 @@ class Theme:
         '''
         for themedir in self.directories:
             if self._directory_matches_size(themedir, size):
-                for extension in ('png', 'svg', 'xpm'):
+                for extension in ('png', 'svg', 'svgz', 'xpm'):
                     yield 'usr/share/icons/{}/{}/{}.{}'.format(self.name, themedir['path'], name, extension)
 
 
@@ -204,7 +200,7 @@ class ContentsListIconFinder(AbstractIconFinder):
             for fname in theme.matching_icon_filenames(icon, size):
                 yield fname
 
-        for extension in ('png', 'svg', 'xpm'):
+        for extension in ('.png', '.svg', '.xpm', '.gif', '.svgz', '.jpg'):
             yield 'usr/share/pixmaps/{}.{}'.format(icon, extension)
 
 
@@ -222,7 +218,3 @@ class ContentsListIconFinder(AbstractIconFinder):
                     size_map_flist[size] = { 'icon_fname': fname, 'deb_fname': pkg['filename'] }
 
         return size_map_flist
-
-
-    def set_allowed_icon_extensions(self, exts):
-        self._allowed_exts = exts
