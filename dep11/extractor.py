@@ -32,11 +32,11 @@ from PIL import Image
 import logging as log
 
 from dep11.component import Component, Screenshot, IconSize, IconType
-from dep11.parsers import read_desktop_data, read_appstream_upstream_xml
-from dep11.iconfinder import AbstractIconFinder
-from dep11.datacache import DataCache
-from dep11.debfile import DebFile
-from dep11.utils import build_pkg_id
+from .parsers import read_desktop_data, read_appstream_upstream_xml
+from .iconhandler import AbstractIconFinder
+from .datacache import DataCache
+from .debfile import DebFile
+from .utils import build_pkg_id
 
 
 xdg_icon_sizes = [IconSize(64), IconSize(72), IconSize(96), IconSize(128),
