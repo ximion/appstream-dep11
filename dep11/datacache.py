@@ -21,6 +21,7 @@ import shutil
 import logging as log
 import lmdb
 from math import pow
+from .utils import build_cpt_global_id
 
 
 def tobytes(s):
@@ -336,3 +337,44 @@ class DataCache:
                 key = int.from_bytes(key, byteorder='big')
                 stats[key] = value
         return stats
+
+
+    def nuke_component(self, cid):
+        """
+        Remove packages referencing a particular component, causing the component data itself to
+        be removed as well at the next cleanup step.
+        This will cause the packages containing the particular component to be reprocessed at the
+        next run of the generator.
+        The component ID is an AppStream-ID (e.g. "org.kde.kate.desktop") and not a generator component-guid.
+        Function returns True if a removal was done, False otherwise.
+        """
+
+        gid_prefix = build_cpt_global_id(cid, "", allow_no_checksum=True)
+        gid_pkg = dict()
+
+        with self._dbenv.begin(db=self._pkgdb) as txn:
+            cursor = txn.cursor()
+            for key, value in cursor:
+                if not value or value == b'ignore' or value == b'seen':
+                    continue
+                value = str(value, 'utf-8')
+                gids = value.split("\n")
+                for gid in gids:
+                    if not gid_pkg.get(gid):
+                        gid_pkg[gid] = list()
+                    gid_pkg[gid].append(key)
+
+        with self._dbenv.begin(db=self._datadb) as dtxn:
+            cursor = dtxn.cursor()
+            for gid, yaml in cursor:
+                gid = str(gid, 'utf-8')
+                if not gid.startswith(gid_prefix):
+                    continue
+
+                # drop all packages referencing this component
+                pkgs = gid_pkg.get(gid)
+                for pkid in pkgs:
+                    self.remove_package(pkid)
+                return True
+
+        return False

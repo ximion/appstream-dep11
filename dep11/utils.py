@@ -61,8 +61,10 @@ def read_packages_dict_from_file(archive_root, suite, component, arch):
 def build_pkg_id(name, version, arch):
     return "%s/%s/%s" % (name, version, arch)
 
-def build_cpt_global_id(cptid, checksum):
-    if (not checksum) or (not cptid):
+def build_cpt_global_id(cptid, checksum, allow_no_checksum=False):
+    if not cptid:
+        return None
+    if not allow_no_checksum and not checksum:
         return None
 
     gid = None
