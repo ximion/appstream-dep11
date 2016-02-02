@@ -326,22 +326,21 @@ class DEP11Generator:
         self._cache.remove_orphaned_components()
 
 
-    def forget_element(self, eid):
+    def forget_package(self, pkid):
         '''
-        Delete all information about a single package or component in the cache.
+        Delete all information about a package in the cache.
         '''
 
-        if '/' in eid:
-            pkid = eid
+        if '/' in pkid:
             if not self._cache.package_exists(pkid):
                 print("Package with ID '%s' does not exist." % (pkid))
                 return
             self._cache.remove_package(pkid)
         else:
-            asid = eid
-            ret = self._cache.nuke_component(asid)
+            log.info("Removing all packages with name {}".format(pkid))
+            ret = self._cache.delete_package_by_name(pkid)
             if not ret:
-                print("Unable to remove component with ID '%s'." % (asid))
+                print("Unable to remove packages matching name '%s'." % (pkid))
                 return
 
         # drop all components which don't have packages
@@ -362,7 +361,7 @@ def main():
     parser.usage += " cleanup [CONFDIR]             - Remove unused data from the cache and expire media.\n"
     parser.usage += " update-reports [CONFDIR] [SUITE]   - Re-generate the metadata and issue HTML pages and update statistics.\n"
     parser.usage += " remove-processed [CONFDIR] [SUITE] - Remove information about processed or failed components.\n"
-    parser.usage += " forget [CONFDIR] [ID]              - Forget a single package or AppStream component and data associated with it.\n"
+    parser.usage += " forget [CONFDIR] [PKID]            - Forget a single package and data associated with it.\n"
 
     args = parser.parse_args()
     command = args.subcommand
@@ -423,7 +422,7 @@ def main():
         gen.remove_processed(params[1])
     elif command == "forget":
         if len(params) != 2:
-            print("Invalid number of arguments: You need to specify a DEP-11 data dir and AppStream or package-id.")
+            print("Invalid number of arguments: You need to specify a DEP-11 data dir and package-name or package-id.")
             sys.exit(1)
         gen = DEP11Generator()
         ret = gen.initialize(params[0])
@@ -431,6 +430,6 @@ def main():
             print("Initialization failed, can not continue.")
             sys.exit(2)
 
-        gen.forget_element(params[1])
+        gen.forget_package(params[1])
     else:
         print("Run with --help for a list of available command-line options!")
