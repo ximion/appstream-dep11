@@ -21,33 +21,24 @@ import fnmatch
 import urllib.request
 import ssl
 import yaml
-from io import BytesIO
 
-import zlib
-import cairo
-import gi
-gi.require_version('Rsvg', '2.0')
-from gi.repository import Rsvg
 from PIL import Image
 import logging as log
 
-from dep11.component import Component, Screenshot, IconSize, IconType
+from .component import Component, Screenshot
 from .parsers import read_desktop_data, read_appstream_upstream_xml
-from .iconhandler import AbstractIconFinder
+from .iconhandler import IconHandler
 from .datacache import DataCache
 from .debfile import DebFile
 from .utils import build_pkg_id
 
-
-xdg_icon_sizes = [IconSize(64), IconSize(72), IconSize(96), IconSize(128),
-                    IconSize(256), IconSize(512)]
 
 class MetadataExtractor:
     '''
     Takes a deb file and extracts component metadata from it.
     '''
 
-    def __init__(self, suite_name, component, icon_sizes, dcache, icon_finder=None):
+    def __init__(self, suite_name, component, dcache, icon_handler):
         '''
         Initialize the object with List of files.
         '''
@@ -57,41 +48,12 @@ class MetadataExtractor:
         self._dcache = dcache
         self.write_to_cache = True
 
-        if icon_finder:
-            self._icon_finder = icon_finder
-        else:
-            self._icon_finder = AbstractIconFinder(self._suite_name, self._archive_component)
+        self._icon_handler = icon_handler
 
-        # list of large sizes to scale down, in order to find more icons
-        self._large_icon_sizes = xdg_icon_sizes[:]
-        # list of icon sizes we want
-        self._icon_sizes = list()
-        for strsize in icon_sizes:
-            self._icon_sizes.append(IconSize(strsize))
-
-        # remove smaller icons - we don't want to scale up icons later
-        while (len(self._large_icon_sizes) > 0) and (int(self._icon_sizes[0]) >= int(self._large_icon_sizes[0])):
-            del self._large_icon_sizes[0]
-
-    @property
-    def icon_finder(self):
-        return self._icon_finder
-
-    @icon_finder.setter
-    def icon_finder(self, val):
-        self._icon_finder = val
 
     def reopen_cache(self):
         self._dcache.reopen()
 
-    def get_path_for_cpt(self, cpt, basepath, subdir):
-        gid = cpt.global_id
-        if not gid:
-            return None
-        if len(cpt.cid) < 1:
-            return None
-        path = os.path.join(basepath, gid, subdir)
-        return path
 
     def _scale_screenshot(self, shot, imgsrc, cpt_export_path, cpt_scr_url):
         """
@@ -131,8 +93,8 @@ class MetadataExtractor:
             if not origin_url:
                 # url empty? skip this screenshot
                 continue
-            path     = self.get_path_for_cpt(cpt, cpt_export_path, "screenshots")
-            base_url = self.get_path_for_cpt(cpt, cpt_public_url,  "screenshots")
+            path     = cpt.build_media_path(cpt_export_path, "screenshots")
+            base_url = cpt.build_media_path(cpt_public_url,  "screenshots")
             imgsrc   = os.path.join(path, "source", "scr-%s.png" % (str(cnt)))
 
             # The Debian services use a custom setup for SSL verification, not trusting global CAs and
@@ -186,257 +148,6 @@ class MetadataExtractor:
             cnt = cnt + 1
 
         cpt.screenshots = shots
-        return success
-
-    def _icon_allowed(self, icon):
-        if icon.lower().endswith(('.png', '.svg', '.gif', '.svgz', '.jpg')):
-            return True
-        return False
-
-    def _render_svg_to_png(self, data, store_path, width, height):
-        '''
-        Uses cairosvg to render svg data to png data.
-        '''
-
-        img =  cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
-        ctx = cairo.Context(img)
-
-        handle = Rsvg.Handle()
-        svg = handle.new_from_data(data)
-
-        wscale = float(width)/float(svg.props.width)
-        hscale = float(height)/float(svg.props.height)
-        ctx.scale(wscale, hscale);
-
-        svg.render_cairo(ctx)
-
-        img.write_to_png(store_path)
-
-    def _store_icon(self, deb_fname, cpt, cpt_export_path, icon_path, size):
-        '''
-        Extracts the icon from the deb package and stores it in the cache.
-        Ensures the stored icon always has the size given in "size", and renders
-        vectorgraphics if necessary.
-        '''
-        svgicon = False
-        if not self._icon_allowed(icon_path):
-            cpt.add_hint("icon-format-unsupported", {'icon_fname': os.path.basename(icon_path)})
-            return False
-
-        if not os.path.exists(deb_fname):
-            return False
-
-        path = self.get_path_for_cpt(cpt, cpt_export_path, "icons/%s" % (str(size)))
-        icon_name = "%s_%s" % (cpt.pkgname, os.path.basename(icon_path))
-        icon_name_orig = icon_name
-
-        icon_name = icon_name.replace(".svgz", ".png")
-        icon_name = icon_name.replace(".svg", ".png")
-        icon_store_location = "{0}/{1}".format(path, icon_name)
-
-        if os.path.exists(icon_store_location):
-            # we already extracted that icon, skip the extraction step
-            # change scalable vector graphics to their .png extension
-            cpt.set_icon(IconType.CACHED, icon_name)
-            return True
-
-        # filepath is checked because icon can reside in another binary
-        # eg amarok's icon is in amarok-data
-        icon_data = None
-        try:
-            deb = DebFile(deb_fname)
-            icon_data = deb.get_file_data(icon_path)
-        except Exception as e:
-            cpt.add_hint("deb-extract-error", {'fname': icon_name, 'pkg_fname': os.path.basename(deb_fname), 'error': str(e)})
-            return False
-
-        if not icon_data:
-            cpt.add_hint("deb-extract-error", {'fname': icon_name, 'pkg_fname': os.path.basename(deb_fname),
-                                               'error': "Icon data was empty. The icon might be a symbolic link, please do not symlink icons "
-                                                         "(instead place the icons in their appropriate directories in <code>/usr/share/icons/hicolor/</code>)."})
-            return False
-        cpt.set_icon(IconType.CACHED, icon_name)
-
-        if icon_name_orig.endswith(".svg"):
-            svgicon = True
-        elif icon_name_orig.endswith(".svgz"):
-            svgicon = True
-            try:
-                icon_data = zlib.decompress(bytes(icon_data), 15+32)
-            except Exception as e:
-                cpt.add_hint("svgz-decompress-error", {'icon_fname': icon_name, 'error': str(e)})
-                return False
-
-        if not os.path.exists(path):
-            os.makedirs(path)
-
-        if svgicon:
-            # render the SVG to a bitmap
-            self._render_svg_to_png(icon_data, icon_store_location, int(size), int(size))
-            return True
-        else:
-            # we don't trust upstream to have the right icon size present, and therefore
-            # always adjust the icon to the right size
-            stream = BytesIO(icon_data)
-            stream.seek(0)
-            img = None
-            try:
-                img = Image.open(stream)
-            except Exception as e:
-                cpt.add_hint("icon-open-failed", {'icon_fname': icon_name, 'error': str(e)})
-                return False
-            newimg = img.resize((int(size), int(size)), Image.ANTIALIAS)
-            newimg.save(icon_store_location)
-            return True
-
-        return False
-
-
-    def _match_icon_on_filelist(self, cpt, filelist, icon_name, size):
-        if size == "scalable":
-            size_str = "scalable"
-        else:
-            size_str = str(size)
-        icon_path = "usr/share/icons/hicolor/%s/apps/%s" % (size_str, icon_name)
-        filtered = fnmatch.filter(filelist, icon_path)
-        if not filtered:
-            return None
-
-        return filtered[0]
-
-
-    def _match_and_store_icon(self, pkg_fname, cpt, cpt_export_path, filelist, icon_name, size):
-        success = False
-        matched_icon = self._match_icon_on_filelist(cpt, filelist, icon_name, size)
-        if not matched_icon:
-            return False
-
-        if not size in self._icon_sizes:
-            # scale icons to allowed sizes
-            for asize in self._icon_sizes:
-                success = self._store_icon(pkg_fname, cpt, cpt_export_path, matched_icon, asize) or success
-        else:
-            success = self._store_icon(pkg_fname, cpt, cpt_export_path, matched_icon, size)
-        return success
-
-
-    def _fetch_icon(self, cpt, cpt_export_path, pkg_fname, filelist):
-        '''
-        Searches for icon if absolute path to an icon
-        is not given. Component with invalid icons are ignored
-        '''
-        if not cpt.has_icon():
-            # if we don't know an icon-name or path, just return without error
-            return True
-
-        icon_str = cpt.get_icon(IconType.CACHED)
-        cpt.set_icon(IconType.CACHED, None)
-
-        all_icon_sizes = self._icon_sizes[:]
-        all_icon_sizes.extend(self._large_icon_sizes)
-
-        success = False
-        if icon_str.startswith("/"):
-            if icon_str[1:] in filelist:
-                return self._store_icon(pkg_fname, cpt, cpt_export_path, icon_str[1:], IconSize(64))
-        else:
-            ret = False
-            icon_str = os.path.basename (icon_str)
-            # check if there is some kind of file-extension.
-            # if there is none, the referenced icon is likely a stock icon, and we assume .png
-            if "." in icon_str:
-                icon_name_ext = icon_str
-            else:
-                icon_name_ext = icon_str + ".png"
-
-            found_sizes = list()
-            for size in self._icon_sizes:
-                ret = self._match_and_store_icon(pkg_fname, cpt, cpt_export_path, filelist, icon_name_ext, size)
-                if ret:
-                    found_sizes.append(size)
-                success = ret or success
-
-            # try if we can add missing icon sizes by scaling down things
-            # this also ensures that we also have an 64x64 sized icon
-            if set(found_sizes) != set(self._icon_sizes):
-                for size in self._icon_sizes:
-                    if size in found_sizes:
-                        continue
-                    for asize in all_icon_sizes:
-                        if asize < size:
-                            continue
-                        icon_fname = self._match_icon_on_filelist(cpt, filelist, icon_name_ext, asize)
-                        if not icon_fname:
-                            continue
-                        ret = self._store_icon(pkg_fname, cpt, cpt_export_path, icon_fname, size)
-                        if ret:
-                            found_sizes.append(size)
-                        success = ret or success
-                        break
-
-            # a 64x64 icon is required, so double-check if we have one
-            if success and not IconSize(64) in found_sizes:
-                success = False
-
-            if not success:
-                # we cheat and test for larger icons as well, which can be scaled down
-                # first check for a scalable graphic
-                success = self._match_and_store_icon(pkg_fname, cpt, cpt_export_path, filelist, icon_str + ".svg", "scalable")
-                if not success:
-                    success = self._match_and_store_icon(pkg_fname, cpt, cpt_export_path, filelist, icon_str + ".svgz", "scalable")
-                # then try to scale down larger graphics
-                if not success:
-                    for size in self._large_icon_sizes:
-                        success = self._match_and_store_icon(pkg_fname, cpt, cpt_export_path, filelist, icon_name_ext, size) or success
-
-        if not success:
-            last_pixmap = None
-            # handle stuff in the pixmaps directory
-            for path in filelist:
-                if path.startswith("usr/share/pixmaps"):
-                    file_basename = os.path.basename(path)
-                    if ((file_basename == icon_str) or (os.path.splitext(file_basename)[0] == icon_str)):
-                        # the pixmap dir can contain icons in multiple formats, and store_icon() fails in case
-                        # the icon format is not allowed. We therefore only exit here, if the icon has a valid format
-                        if self._icon_allowed(path):
-                            return self._store_icon(pkg_fname, cpt, cpt_export_path, path, IconSize(64))
-                        last_pixmap = path
-            if last_pixmap:
-                # we don't do a global icon search anymore, since we've found an (unsuitable) icon
-                # already
-                cpt.add_hint("icon-format-unsupported", {'icon_fname': os.path.basename(last_pixmap)})
-                return False
-
-            icon_dict = self._icon_finder.find_icons(cpt.pkgname, icon_str, all_icon_sizes)
-            success = False
-            if icon_dict:
-                for size in self._icon_sizes:
-                    if not size in icon_dict:
-                        continue
-
-                    success = self._store_icon(icon_dict[size]['deb_fname'],
-                                        cpt,
-                                        cpt_export_path,
-                                        icon_dict[size]['icon_fname'],
-                                        size) or success
-                if not success:
-                    for size in self._large_icon_sizes:
-                        if not size in icon_dict:
-                            continue
-                        for asize in self._icon_sizes:
-                            success = self._store_icon(icon_dict[size]['deb_fname'],
-                                        cpt,
-                                        cpt_export_path,
-                                        icon_dict[size]['icon_fname'],
-                                        asize) or success
-                return success
-
-            if ("." in icon_str) and (not self._icon_allowed(icon_str)):
-                cpt.add_hint("icon-format-unsupported", {'icon_fname': icon_str})
-            else:
-                cpt.add_hint("icon-not-found", {'icon_fname': icon_str})
-            return False
-
         return success
 
 
@@ -583,7 +294,7 @@ class MetadataExtractor:
                     cpt.add_hint("metainfo-duplicate-id", {'cid': cpt.cid, 'pkgname': ecpt.get('Package', '')})
                     continue
 
-            self._fetch_icon(cpt, export_path, pkg_fname, filelist)
+            self._icon_handler.fetch_icon(cpt, export_path, pkg_fname, filelist)
             if cpt.kind == 'desktop-app' and not cpt.has_icon():
                 cpt.add_hint("gui-app-without-icon", {'cid': cpt.cid})
             else:

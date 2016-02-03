@@ -30,7 +30,7 @@ import logging as log
 
 from dep11 import MetadataExtractor, DataCache, build_cpt_global_id, build_pkg_id
 from .component import Component, get_dep11_header, dict_to_dep11_yaml
-from .iconhandler import ContentsListIconFinder
+from .iconhandler import IconHandler
 from .utils import get_data_dir, read_packages_dict_from_file, load_generator_config
 from .hints import get_hint_tag_info
 from .reportgenerator import ReportGenerator
@@ -196,13 +196,13 @@ class DEP11Generator:
 
                 # set up metadata extractor
                 icon_theme = suite.get('useIconTheme')
-                iconf = ContentsListIconFinder(suite_name, component, arch, self._archive_root,
+                iconh = IconHandler(suite_name, component, arch, self._archive_root,
                                                icon_theme, base_suite_name=suite.get('baseSuite'))
+                iconh.set_wanted_icon_sizes(self._icon_sizes)
                 mde = MetadataExtractor(suite_name,
                                 component,
-                                self._icon_sizes,
                                 self._cache,
-                                iconf)
+                                iconh)
 
                 # Multiprocessing can't cope with LMDB open in the cache,
                 # but instead of throwing an error or doing something else

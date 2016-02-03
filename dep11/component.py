@@ -20,10 +20,11 @@ Contains the definition of a DEP-11 component.
 # You should have received a copy of the GNU Lesser General Public
 # License along with this program.
 
+import os
 import yaml
 import datetime
-from dep11.utils import str_enc_dec, build_cpt_global_id
-from dep11.hints import HintSeverity, hint_tag_is_error
+from .utils import str_enc_dec, build_cpt_global_id
+from .hints import HintSeverity, hint_tag_is_error
 import logging as log
 import hashlib
 
@@ -337,6 +338,16 @@ class Component:
             self.kind = 'firmware'
         else:
             self.add_hint("metainfo-unknown-type", {'type': str(s)})
+
+
+    def build_media_path(self, basepath, subdir):
+        gid = self.global_id
+        if not gid:
+            return None
+        if len(self.cid) < 1:
+            return None
+        path = os.path.join(basepath, gid, subdir)
+        return path
 
 
     @property
