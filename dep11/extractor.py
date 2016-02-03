@@ -189,7 +189,7 @@ class MetadataExtractor:
         return success
 
     def _icon_allowed(self, icon):
-        if icon.endswith(('.png', '.svg', '.xpm', '.gif', '.svgz', '.jpg', '.ico')):
+        if icon.lower().endswith(('.png', '.svg', '.gif', '.svgz', '.jpg')):
             return True
         return False
 

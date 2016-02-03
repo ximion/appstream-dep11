@@ -57,7 +57,7 @@ class Theme:
         deb = DebFile(deb_fname)
         indexdata = str(deb.get_file_data(os.path.join('usr/share/icons', name, 'index.theme')), 'utf-8')
 
-        index = ConfigParser(allow_no_value=True, interpolation=None)
+        index = ConfigParser(allow_no_value=True, strict=False, interpolation=None)
         index.optionxform = str   # don't lower-case option names
         index.readfp(StringIO(indexdata))
 
