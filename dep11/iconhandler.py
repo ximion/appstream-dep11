@@ -77,7 +77,7 @@ class Theme:
         elif themedir['type'] == 'Scalable':
             return themedir['minsize'] <= size <= themedir['maxsize']
         elif themedir['type'] == 'Threshold':
-            return size - themedir['threshold'] <= size <= size + themedir['threshold']
+            return themedir['size'] - themedir['threshold'] <= size <= themedir['size'] + themedir['threshold']
 
 
     def matching_icon_filenames(self, name, size):
@@ -216,16 +216,15 @@ class IconHandler:
         '''
         size_map_flist = dict()
 
-        if use_pkg:
-            # we are supposed to search in one particular package
-            for size in sizes:
-                for fname in self._possible_icon_filenames(icon_name, size):
+        for size in sizes:
+            for fname in self._possible_icon_filenames(icon_name, size):
+                if use_pkg:
+                    # we are supposed to search in one particular package
                     if fname in use_pkg['filelist']:
                         size_map_flist[size] = { 'icon_fname': fname, 'deb_fname': use_pkg['filename'] }
                         break
-        else:
-            for size in sizes:
-                for fname in self._possible_icon_filenames(icon_name, size):
+                else:
+                    # global search
                     pkg = self._icon_files.get(fname)
                     if pkg:
                         size_map_flist[size] = { 'icon_fname': fname, 'deb_fname': pkg['filename'] }
