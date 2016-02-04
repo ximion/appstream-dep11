@@ -21,7 +21,7 @@ import logging as log
 
 from dep11.utils import get_data_dir
 
-__all__ = []
+__all__ = list()
 
 _DEP11_HINT_DESCRIPTIONS = None
 

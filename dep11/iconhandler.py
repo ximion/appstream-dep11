@@ -30,14 +30,7 @@ from io import StringIO, BytesIO
 
 from .component import IconSize, IconType
 from .debfile import DebFile
-from .package import read_packages_dict_from_file
-
-
-def _decode_contents_line(line):
-    try:
-        return str(line, 'utf-8')
-    except:
-        return str(line, 'iso-8859-1')
+from .contentsfile import parse_contents_file
 
 
 class Theme:
@@ -100,7 +93,6 @@ class IconHandler:
         self._component = archive_component
         self._mirror_dir = archive_mirror_dir
 
-        self._packages = dict()
         self._themes = list()
         self._icon_files = dict()
 
@@ -146,56 +138,18 @@ class IconHandler:
 
 
     def _load_contents_data(self, arch_name, suite_name, component):
-        contents_basename = "Contents-%s.gz" % (arch_name)
-        contents_fname = os.path.join(self._mirror_dir, "dists", suite_name, component, contents_basename)
-
-        # Ubuntu does not place the Contents file in a component-specific directory,
-        # so fall back to the global one.
-        if not os.path.isfile(contents_fname):
-            path = os.path.join(self._mirror_dir, "dists", suite_name, contents_basename)
-            if os.path.isfile(path):
-                contents_fname = path
-
-        # we need information about the whole package, not only the package-name,
-        # otherwise icon-theme support won't work and we also don't know where the
-        # actual .deb files are stored.
-        for name, pkg in read_packages_dict_from_file(self._mirror_dir, suite_name, component, arch_name, with_description=False).items():
-            pkg.filename = os.path.join(self._mirror_dir, pkg.filename)
-            self._packages[name] = pkg
-
         # load and preprocess the large file.
         # we don't show mercy to memory here, we just want the icon lookup to be fast,
         # so we need to cache the data.
-        with gzip.open(contents_fname, 'r') as f:
-            for line in f:
-                line = _decode_contents_line(line)
-                fname, pkg = self._file_pkg_from_contents_line(line)
-                if not pkg:
-                    continue
-
-                if fname.startswith('usr/share/pixmaps/'):
+        for fname, pkg in parse_contents_file(self._mirror_dir, suite_name, component, arch_name):
+            if fname.startswith('usr/share/pixmaps/'):
+                self._icon_files[fname] = pkg
+                continue
+            for name in self._theme_names:
+                if fname == 'usr/share/icons/{}/index.theme'.format(name):
+                    self._themes.append(Theme(name, pkg.filename))
+                elif fname.startswith('usr/share/icons/{}'.format(name)):
                     self._icon_files[fname] = pkg
-                    continue
-
-                for name in self._theme_names:
-                    if fname == 'usr/share/icons/{}/index.theme'.format(name):
-                        self._themes.append(Theme(name, pkg.filename))
-                    elif fname.startswith('usr/share/icons/{}'.format(name)):
-                        self._icon_files[fname] = pkg
-
-
-    def _file_pkg_from_contents_line(self, raw_line):
-        line = raw_line.strip(' \t\n\r')
-        if not " " in line:
-            return (None, None)
-        parts = line.split(" ", 1)
-        path = parts[0].strip()
-        group_pkg = parts[1].strip()
-        if "/" in group_pkg:
-            pkgname = group_pkg.split("/", 1)[1].strip()
-        else:
-            pkgname = group_pkg
-        return (path, self._packages.get(pkgname))
 
 
     def _possible_icon_filenames(self, icon, size):
