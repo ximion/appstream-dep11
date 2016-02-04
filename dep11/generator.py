@@ -32,6 +32,7 @@ from .iconhandler import IconHandler
 from .utils import load_generator_config
 from .package import read_packages_dict_from_file
 from .reportgenerator import ReportGenerator
+from .contentsfile import parse_contents_file
 
 
 def safe_move_file(old_fname, new_fname):
@@ -347,6 +348,43 @@ class DEP11Generator:
         self._cache.remove_orphaned_components()
 
 
+    def prepopulate_cache(self, suite_name):
+        '''
+        Check which packages we can definitely ignore based on their contents in the Contents.gz file.
+        This is useful when e.g. bootstrapping new suites / architectures.
+        '''
+
+        suite = self._suites_data.get(suite_name)
+        if not suite:
+            log.error("Suite '%s' not found!" % (suite_name))
+            return False
+
+        pkid_filelist = dict()
+        for component in suite['components']:
+            for arch in suite['architectures']:
+                for fname, pkg in parse_contents_file(self._archive_root, suite_name, component, arch):
+                    if not pkid_filelist.get(pkg.pkid):
+                        pkid_filelist[pkg.pkid] = list()
+                    pkid_filelist[pkg.pkid].append(fname)
+
+        for pkid, filelist in pkid_filelist.items():
+            ignore = True
+            for f in filelist:
+                if 'usr/share/applications/' in f:
+                    ignore = False
+                if 'usr/share/appdata/' in f:
+                    ignore = False
+                if '/pkgconfig/' in f:
+                    ignore = False
+
+            if ignore:
+                if self._cache.is_ignored(pkid):
+                    log.info("Package is already ignored: {}".format(pkid))
+                else:
+                    log.info("Ignoring package: {}".format(pkid))
+                    self._cache.set_package_ignore(pkid)
+
+
 def main():
     """Main entry point of generator"""
 
@@ -431,5 +469,16 @@ def main():
             sys.exit(2)
 
         gen.forget_package(params[1])
+    elif command == "prepopulate-cache":
+        if len(params) != 2:
+            print("Invalid number of arguments: You need to specify a DEP-11 data dir and suite.")
+            sys.exit(1)
+        gen = DEP11Generator()
+        ret = gen.initialize(params[0])
+        if not ret:
+            print("Initialization failed, can not continue.")
+            sys.exit(2)
+
+        gen.prepopulate_cache(params[1])
     else:
         print("Run with --help for a list of available command-line options!")
