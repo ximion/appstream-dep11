@@ -61,6 +61,10 @@ class Package:
         return "%s/%s/%s" % (self.name, self.version, self.arch)
 
 
+    def close_debfile(self):
+        self._debfile = None
+
+
     def set_description(self, locale, desc):
         if not desc:
             return

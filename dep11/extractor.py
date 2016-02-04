@@ -319,4 +319,8 @@ class MetadataExtractor:
             # write the components we found to the cache
             self._dcache.set_components(pkgid, cpts)
 
+        # ensure DebFile is closed so we don't run out of FDs when too many
+        # files are open.
+        pkg.close_debfile()
+
         return cpts
