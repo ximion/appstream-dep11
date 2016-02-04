@@ -372,14 +372,19 @@ class DEP11Generator:
             for f in filelist:
                 if 'usr/share/applications/' in f:
                     ignore = False
+                    break
                 if 'usr/share/appdata/' in f:
                     ignore = False
+                    break
                 if '/pkgconfig/' in f:
                     ignore = False
+                    break
 
             if ignore:
                 if self._cache.is_ignored(pkid):
                     log.info("Package is already ignored: {}".format(pkid))
+                elif self._cache.package_exists(pkid):
+                    log.warning("Tried to ignore package which actually exists and has data: {}".format(pkid))
                 else:
                     log.info("Ignoring package: {}".format(pkid))
                     self._cache.set_package_ignore(pkid)
