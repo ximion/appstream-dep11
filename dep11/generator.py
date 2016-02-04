@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2015 Matthias Klumpp <mak@debian.org>
+# Copyright (C) 2015-2016 Matthias Klumpp <mak@debian.org>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -31,7 +31,8 @@ import logging as log
 from dep11 import MetadataExtractor, DataCache, build_cpt_global_id, build_pkg_id
 from .component import Component, get_dep11_header, dict_to_dep11_yaml
 from .iconhandler import IconHandler
-from .utils import get_data_dir, read_packages_dict_from_file, load_generator_config
+from .utils import get_data_dir, load_generator_config
+from .package import Package, read_packages_dict_from_file
 from .hints import get_hint_tag_info
 from .reportgenerator import ReportGenerator
 
@@ -44,12 +45,12 @@ def safe_move_file(old_fname, new_fname):
     os.rename(old_fname, new_fname)
 
 
-def extract_metadata(mde, sn, pkgname, version, arch, package_fname):
+def extract_metadata(mde, sn, pkg):
     # we're now in a new process and can (re)open a LMDB connection
     mde.reopen_cache()
-    cpts = mde.process(pkgname, version, arch, package_fname)
+    cpts = mde.process(pkg)
 
-    msgtxt = "Processed: %s (%s/%s), found %i" % (pkgname, sn, arch, len(cpts))
+    msgtxt = "Processed: %s (%s/%s), found %i" % (pkg.name, sn, pkg.arch, len(cpts))
     return msgtxt
 
 
@@ -128,7 +129,7 @@ class DEP11Generator:
         size_tars = dict()
 
         for pkg in pkglist:
-            pkid = build_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
+            pkid = pkg.pkid
 
             gids = self._cache.get_cpt_gids_for_pkg(pkid)
             if not gids:
@@ -183,7 +184,7 @@ class DEP11Generator:
                 # compile a list of packages that we need to look into
                 pkgs_todo = dict()
                 for pkg in pkglist:
-                    pkid = build_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
+                    pkid = pkg.pkid
 
                     # check if we scanned the package already
                     if self._cache.package_exists(pkid):
@@ -224,12 +225,13 @@ class DEP11Generator:
 
                     log.info("Processing %i packages in %s/%s/%s" % (len(pkgs_todo), suite_name, component, arch))
                     for pkid, pkg in pkgs_todo.items():
-                        package_fname = os.path.join (self._archive_root, pkg['filename'])
+                        package_fname = os.path.join (self._archive_root, pkg.filename)
                         if not os.path.exists(package_fname):
                             log.warning('Package not found: %s' % (package_fname))
                             continue
+                        pkg.filename = package_fname
                         pool.apply_async(extract_metadata,
-                                    (mde, suite_name, pkg['name'], pkg['version'], pkg['arch'], package_fname),
+                                    (mde, suite_name, pkg),
                                     callback=handle_results, error_callback=handle_error)
                     pool.close()
                     pool.join()
@@ -255,7 +257,7 @@ class DEP11Generator:
                 data_f.write(bytes(dep11_header, 'utf-8'))
 
                 for pkg in pkglist:
-                    pkid = build_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
+                    pkid = pkg.pkid
                     data = self._cache.get_metadata_for_pkg(pkid)
                     if data:
                         data_f.write(bytes(data, 'utf-8'))
@@ -285,8 +287,7 @@ class DEP11Generator:
                 for arch in suite['architectures']:
                     pkglist = self._get_packages_for(suite_name, component, arch)
                     for pkg in pkglist:
-                        pkid = build_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
-                        pkgids.add(pkid)
+                        pkgids.add(pkg.pkid)
 
         # clean cache
         oldpkgs = self._cache.get_packages_not_in_set(pkgids)
@@ -316,8 +317,7 @@ class DEP11Generator:
                 pkglist = self._get_packages_for(suite_name, component, arch)
 
                 for pkg in pkglist:
-                    package_fname = os.path.join (self._archive_root, pkg['filename'])
-                    pkid = build_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
+                    pkid = pkg.pkid
 
                     # we ignore packages without any interesting metadata here
                     if self._cache.is_ignored(pkid):

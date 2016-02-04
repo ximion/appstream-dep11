@@ -27,11 +27,12 @@ from jinja2 import Environment, FileSystemLoader
 import logging as log
 
 from dep11 import DataCache, build_cpt_global_id, build_pkg_id, __version__
-from dep11.component import dict_to_dep11_yaml
-from dep11.utils import get_data_dir, read_packages_dict_from_file, load_generator_config
-from dep11.hints import get_hint_tag_info
-from dep11.validate import DEP11Validator
-from dep11.statsgenerator import StatsGenerator
+from .component import dict_to_dep11_yaml
+from .utils import get_data_dir, load_generator_config
+from .package import Package, read_packages_dict_from_file
+from .hints import get_hint_tag_info
+from .validate import DEP11Validator
+from .statsgenerator import StatsGenerator
 
 try:
     import pygments
@@ -199,11 +200,11 @@ class ReportGenerator:
                 pkglist = self._get_packages_for(suite_name, component, arch)
 
                 for pkg in pkglist:
-                    pkid = build_pkg_id(pkg['name'], pkg['version'], pkg['arch'])
+                    pkid = pkg.pkid
 
                     maintainer = None
                     if pkg:
-                        maintainer = pkg['maintainer']
+                        maintainer = pkg.maintainer
                     if not maintainer:
                         maintainer = "Unknown"
 

@@ -25,11 +25,11 @@ import yaml
 from PIL import Image
 import logging as log
 
+from .package import Package
 from .component import Component, Screenshot
 from .parsers import read_desktop_data, read_appstream_upstream_xml
 from .iconhandler import IconHandler
 from .datacache import DataCache
-from .debfile import DebFile
 from .utils import build_pkg_id
 
 
@@ -151,7 +151,7 @@ class MetadataExtractor:
         return success
 
 
-    def _process_pkg(self, pkgname, pkgversion, pkgarch, pkg_fname, metainfo_files=None):
+    def _process_pkg(self, pkg, metainfo_files=None):
         """
         Reads the metadata from the xml file and the desktop files.
         Returns a list of processed dep11.Component objects.
@@ -159,23 +159,20 @@ class MetadataExtractor:
 
         deb = None
         try:
-            deb = DebFile(pkg_fname)
+            deb = pkg.debfile
         except Exception as e:
-            log.error("Error reading deb file '%s': %s" % (pkg_fname, e))
+            log.error("Error reading deb file '%s': %s" % (pkg.filename, e))
             return list()
-
-        # build the package unique identifier
-        pkgid = build_pkg_id(pkgname, pkgversion, pkgarch)
 
         try:
             filelist = deb.get_filelist()
         except Exception as e:
-            log.error("List of files for '%s' could not be read" % (pkg_fname))
+            log.error("List of files for '%s' could not be read" % (pkg.filename))
             filelist = None
 
         if not filelist:
-            cpt = Component(self._suite_name, pkgname, pkgid)
-            cpt.add_hint("deb-filelist-error", {'pkg_fname': os.path.basename(pkg_fname)})
+            cpt = Component(self._suite_name, pkg)
+            cpt.add_hint("deb-filelist-error", {'pkg_fname': os.path.basename(pkg.filename)})
             return [cpt]
 
         export_path = "%s/%s" % (self._export_dir, self._archive_component)
@@ -198,23 +195,23 @@ class MetadataExtractor:
                     dcontent = str(deb.get_file_data(meta_file), 'utf-8')
                 except Exception as e:
                     error = {'tag': "deb-extract-error",
-                                'params': {'fname': cpt_id, 'pkg_fname': os.path.basename(pkg_fname), 'error': str(e)}}
+                                'params': {'fname': cpt_id, 'pkg_fname': os.path.basename(pkg.filename), 'error': str(e)}}
                 if not dcontent and not error:
                     error = {'tag': "deb-empty-file",
-                                'params': {'fname': cpt_id, 'pkg_fname': os.path.basename(pkg_fname)}}
+                                'params': {'fname': cpt_id, 'pkg_fname': os.path.basename(pkg.filename)}}
                 mdata_raw[cpt_id] = {'error': error, 'data': dcontent}
 
         # process all AppStream XML files
         for meta_file in metainfo_files:
             if meta_file.endswith(".xml") and meta_file.startswith("usr/share/appdata"):
                 xml_content = None
-                cpt = Component(self._suite_name, pkgname, pkgid)
+                cpt = Component(self._suite_name, pkg)
 
                 try:
                     xml_content = str(deb.get_file_data(meta_file), 'utf-8')
                 except Exception as e:
                     # inability to read an AppStream XML file is a valid reason to skip the whole package
-                    cpt.add_hint("deb-extract-error", {'fname': meta_file, 'pkg_fname': os.path.basename(pkg_fname), 'error': str(e)})
+                    cpt.add_hint("deb-extract-error", {'fname': meta_file, 'pkg_fname': os.path.basename(pkg.filename), 'error': str(e)})
                     return [cpt]
                 if not xml_content:
                     continue
@@ -228,7 +225,7 @@ class MetadataExtractor:
                     cpt.add_hint("metainfo-no-id")
                     continue
 
-                cpt.set_srcdata_checksum_from_data(xml_content + pkgversion)
+                cpt.set_srcdata_checksum_from_data(xml_content + pkg.version)
                 if cpt.kind == 'desktop-app':
                     data = mdata_raw.get(cpt.cid)
                     if not data:
@@ -241,14 +238,14 @@ class MetadataExtractor:
                         # we have a .desktop component, extend it with the associated .desktop data
                         # if a metainfo file exists, we should ignore NoDisplay flags in .desktop files.
                         read_desktop_data(cpt, data['data'], ignore_nodisplay=True)
-                        cpt.set_srcdata_checksum_from_data(xml_content + data['data'] + pkgversion)
+                        cpt.set_srcdata_checksum_from_data(xml_content + data['data'] + pkg.version)
                     del mdata_raw[cpt.cid]
 
         # now process the remaining metadata files, which have not been processed together with the XML
         for mid, mdata in mdata_raw.items():
             if mid.endswith(".desktop"):
                 # We have a .desktop file
-                cpt = Component(self._suite_name, pkgname, pkgid)
+                cpt = Component(self._suite_name, pkg)
                 cpt.cid = mid
 
                 if mdata['error']:
@@ -259,7 +256,7 @@ class MetadataExtractor:
                     ret = read_desktop_data(cpt, mdata['data'])
                     if ret or not cpt.has_ignore_reason():
                         component_dict[cpt.cid] = cpt
-                        cpt.set_srcdata_checksum_from_data(mdata['data'] + pkgversion)
+                        cpt.set_srcdata_checksum_from_data(mdata['data'] + pkg.version)
                     else:
                         # this means that reading the .desktop file failed and we should
                         # silently ignore this issue (since the file was marked to be invisible on purpose)
@@ -271,7 +268,7 @@ class MetadataExtractor:
             if cpt.has_ignore_reason():
                 continue
             if not cpt.global_id:
-                log.error("Component '%s' from package '%s' has no source-data checksum / global-id." % (cpt.cid, pkg_fname))
+                log.error("Component '%s' from package '%s' has no source-data checksum / global-id." % (cpt.cid, pkg.filename))
                 continue
 
             # check if we have a component generated from
@@ -281,7 +278,7 @@ class MetadataExtractor:
             # with matches ours.
             existing_mdata = self._dcache.get_metadata(cpt.global_id)
             if existing_mdata:
-                s = "Package: %s\n" % (pkgname)
+                s = "Package: %s\n" % (pkg.name)
                 if s in existing_mdata:
                     continue
                 else:
@@ -294,7 +291,7 @@ class MetadataExtractor:
                     cpt.add_hint("metainfo-duplicate-id", {'cid': cpt.cid, 'pkgname': ecpt.get('Package', '')})
                     continue
 
-            self._icon_handler.fetch_icon(cpt, export_path, pkg_fname, filelist)
+            self._icon_handler.fetch_icon(cpt, pkg, export_path)
             if cpt.kind == 'desktop-app' and not cpt.has_icon():
                 cpt.add_hint("gui-app-without-icon", {'cid': cpt.cid})
             else:
@@ -302,17 +299,17 @@ class MetadataExtractor:
 
         return cpts
 
-    def process(self, pkgname, pkgversion, pkgarch, pkg_fname, metainfo_files=None):
+    def process(self, pkg, metainfo_files=None):
         """
         Reads the metadata from the xml file and the desktop files.
         Returns a list of dep11.Component objects, and writes the result to the cache.
         """
 
-        cpts = self._process_pkg(pkgname, pkgversion, pkgarch, pkg_fname, metainfo_files)
+        cpts = self._process_pkg(pkg, metainfo_files)
 
         # build the package unique identifier (again)
         # NOTE: We could also get this from any returned component (pkid property)
-        pkgid = build_pkg_id(pkgname, pkgversion, pkgarch)
+        pkgid = pkg.pkid
 
         # write data to cache
         if self.write_to_cache:

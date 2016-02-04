@@ -25,18 +25,26 @@ class DebFile:
 
     def __init__(self, fname):
         self._deb = apt_inst.DebFile(fname)
+        self._filelist = None
+
 
     def get_filelist(self):
         '''
         Returns a list of all files in a deb package
         '''
+
+        if self._filelist:
+            return self._filelist
+
         files = list()
         try:
             self._deb.data.go(lambda item, data: files.append(item.name))
         except SystemError as e:
             raise e
 
-        return files
+        self._filelist = files
+        return self._filelist
+
 
     def get_file_data(self, fname):
         """

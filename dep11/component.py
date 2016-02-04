@@ -239,13 +239,11 @@ class Component:
     Used to store the properties of component data. Used by MetadataExtractor
     '''
 
-    def __init__(self, suitename, pkgname, pkid=None):
-        '''
-        Used to set the properties to None.
-        '''
+    def __init__(self, suitename, pkg=None):
         self._suitename = suitename
-        self._pkg = pkgname
-        self._pkid = pkid
+        if pkg:
+            self._pkid = pkg.pkid
+            self._pkgname = pkg.name
 
         # properties
         self._hints = list()
@@ -296,8 +294,8 @@ class Component:
             hdict['ID'] = self.cid
         if self.kind:
             hdict['Type'] = self.kind
-        if self._pkg:
-            hdict['Package'] = self._pkg
+        if self._pkgname:
+            hdict['Package'] = self._pkgname
         if self._pkid:
             hdict['PackageID'] = self._pkid
         if self.has_ignore_reason():
@@ -391,7 +389,7 @@ class Component:
 
     @property
     def pkgname(self):
-        return self._pkg
+        return self._pkgname
 
     @property
     def pkid(self):
@@ -636,7 +634,7 @@ class Component:
                 self.add_hint("metainfo-no-type")
             if not self.name:
                 self.add_hint("metainfo-no-name")
-            if not self._pkg:
+            if not self._pkgname:
                 self.add_hint("metainfo-no-package")
             if not self.summary:
                 self.add_hint("metainfo-no-summary")
@@ -644,7 +642,7 @@ class Component:
             self._check_translated()
 
         d = dict()
-        d['Package'] = str(self._pkg)
+        d['Package'] = str(self._pkgname)
         if self.cid:
             d['ID'] = self.cid
         if self.kind:
