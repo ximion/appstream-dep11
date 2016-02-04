@@ -17,23 +17,20 @@
 
 import os
 import sys
-import yaml
 import apt_pkg
 import gzip
 import tarfile
 import glob
-import shutil
 import traceback
 from argparse import ArgumentParser
 import multiprocessing as mp
 import logging as log
 
-from dep11 import MetadataExtractor, DataCache, build_cpt_global_id, build_pkg_id
-from .component import Component, get_dep11_header, dict_to_dep11_yaml
+from dep11 import DataCache, MetadataExtractor
+from .component import get_dep11_header
 from .iconhandler import IconHandler
-from .utils import get_data_dir, load_generator_config
-from .package import Package, read_packages_dict_from_file
-from .hints import get_hint_tag_info
+from .utils import load_generator_config
+from .package import read_packages_dict_from_file
 from .reportgenerator import ReportGenerator
 
 
@@ -168,8 +165,6 @@ class DEP11Generator:
         if not suite:
             log.error("Suite '%s' not found!" % (suite_name))
             return False
-
-        dep11_mediadir = self._get_media_dir()
 
         # We need 'forkserver' as startup method to prevent deadlocks on join()
         # Something in the extractor is doing weird things, makes joining impossible
@@ -312,7 +307,6 @@ class DEP11Generator:
             return False
 
         for component in suite['components']:
-            all_cpt_pkgs = list()
             for arch in suite['architectures']:
                 pkglist = self._get_packages_for(suite_name, component, arch)
 

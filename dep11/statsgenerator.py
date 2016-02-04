@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2015 Matthias Klumpp <mak@debian.org>
+# Copyright (C) 2015-2016 Matthias Klumpp <mak@debian.org>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -16,7 +16,6 @@
 # License along with this program.
 
 import os
-import sys
 import yaml
 import time
 import logging as log
@@ -25,8 +24,6 @@ import matplotlib
 matplotlib.use('Agg') # use Agg backend, works around GObject error in PyPlots _backend_selection method
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-
-from dep11 import DataCache
 
 
 class StatsGenerator:

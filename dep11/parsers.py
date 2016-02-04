@@ -6,7 +6,7 @@ XDG .desktop files.
 """
 
 # Copyright (c) 2014 Abhishek Bhattacharjee <abhishek.bhattacharjee11@gmail.com>
-# Copyright (c) 2014 Matthias Klumpp <mak@debian.org>
+# Copyright (c) 2014-2016 Matthias Klumpp <mak@debian.org>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -27,7 +27,7 @@ import lxml.etree as et
 from xml.sax.saxutils import escape
 from io import StringIO
 
-from .component import Component, Screenshot, ProvidedItemType, IconType
+from .component import Component, Screenshot, IconType, ProvidedItemType
 from .utils import str_enc_dec
 
 def read_desktop_data(cpt, dcontent, ignore_nodisplay=False):

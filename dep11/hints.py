@@ -16,7 +16,6 @@
 # License along with this program.
 
 import os
-import sys
 import yaml
 import logging as log
 

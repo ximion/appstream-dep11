@@ -31,8 +31,6 @@ def str_enc_dec(val):
 
     return val
 
-def build_pkg_id(name, version, arch):
-    return "%s/%s/%s" % (name, version, arch)
 
 def build_cpt_global_id(cptid, checksum, allow_no_checksum=False):
     if not cptid:
@@ -51,6 +49,7 @@ def build_cpt_global_id(cptid, checksum, allow_no_checksum=False):
 
     return gid
 
+
 def get_data_dir():
     """Return data directory path. Check first in master, then virtualenv or installed system version."""
 
@@ -60,6 +59,7 @@ def get_data_dir():
         return data_dir
 
     return os.path.join(sys.prefix, "share", "dep11")
+
 
 def load_generator_config(wdir):
     conf_fname = os.path.join(wdir, "dep11-config.yml")

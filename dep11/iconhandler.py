@@ -17,7 +17,6 @@
 
 import os
 import gzip
-import re
 import logging as log
 
 import zlib
@@ -252,7 +251,6 @@ class IconHandler:
             if icon_str[1:] in pkg.debfile.get_filelist():
                 return self._store_icon(pkg, cpt, cpt_export_path, icon_str[1:], IconSize(64))
         else:
-            ret = False
             icon_str = os.path.basename(icon_str)
 
             # some apps define the icon suffix, so we can check early if we do not support the icon

@@ -17,7 +17,6 @@
 # License along with this program.
 
 import os
-import fnmatch
 import urllib.request
 import ssl
 import yaml
@@ -25,12 +24,8 @@ import yaml
 from PIL import Image
 import logging as log
 
-from .package import Package
-from .component import Component, Screenshot
+from .component import Component
 from .parsers import read_desktop_data, read_appstream_upstream_xml
-from .iconhandler import IconHandler
-from .datacache import DataCache
-from .utils import build_pkg_id
 
 
 class MetadataExtractor:

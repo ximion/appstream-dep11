@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2015 Matthias Klumpp <mak@debian.org>
+# Copyright (C) 2015-2016 Matthias Klumpp <mak@debian.org>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -16,20 +16,16 @@
 # License along with this program.
 
 import os
-import sys
 import yaml
-import apt_pkg
-import gzip
-import glob
 import shutil
 import time
 from jinja2 import Environment, FileSystemLoader
 import logging as log
 
-from dep11 import DataCache, build_cpt_global_id, build_pkg_id, __version__
+from dep11 import DataCache, __version__
 from .component import dict_to_dep11_yaml
 from .utils import get_data_dir, load_generator_config
-from .package import Package, read_packages_dict_from_file
+from .package import read_packages_dict_from_file
 from .hints import get_hint_tag_info
 from .validate import DEP11Validator
 from .statsgenerator import StatsGenerator
@@ -93,7 +89,7 @@ class ReportGenerator:
         if conf.get("CacheDir"):
             cache_dir = conf.get("CacheDir")
         self._cache = DataCache(os.path.join(self._export_dir, "media"))
-        ret = self._cache.open(cache_dir)
+        self._cache.open(cache_dir)
 
         os.chdir(dep11_dir)
         return True

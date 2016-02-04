@@ -21,7 +21,6 @@ import shutil
 import logging as log
 import lmdb
 from math import pow
-from .utils import build_cpt_global_id
 
 
 def tobytes(s):

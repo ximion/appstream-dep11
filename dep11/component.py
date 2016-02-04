@@ -23,8 +23,8 @@ Contains the definition of a DEP-11 component.
 import os
 import yaml
 import datetime
-from .utils import str_enc_dec, build_cpt_global_id
-from .hints import HintSeverity, hint_tag_is_error
+from .utils import build_cpt_global_id
+from .hints import hint_tag_is_error
 import logging as log
 import hashlib
 
@@ -568,7 +568,6 @@ class Component:
 
         unlocalized = d.get('C')
         if unlocalized:
-            to_remove = []
             for k in list(d.keys()):
                 val = d[k]
                 # don't duplicate strings

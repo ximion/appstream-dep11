@@ -15,7 +15,6 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this program.
 
-import os
 import gzip
 from .debfile import DebFile
 from apt_pkg import TagFile, version_compare
