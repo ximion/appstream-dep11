@@ -19,21 +19,19 @@ import os
 import gzip
 from .debfile import DebFile
 from apt_pkg import TagFile, version_compare
+from xml.sax.saxutils import escape
 
 
 class Package:
-    name = None
-    version = None
-    arch = None
-    maintainer = None
-    description = dict()
 
     def __init__(self, name, version, arch, fname=None):
         self.name = name
         self.version = version
         self.arch = arch
         self.filename = fname
+        self.maintainer = None
 
+        self._description = dict()
         self._debfile = None
 
 
@@ -45,6 +43,10 @@ class Package:
     def filename(self, val):
         self._filename = val
         self._debfile = None
+
+    @property
+    def description(self):
+        return self._description
 
     @property
     def debfile(self):
@@ -61,14 +63,28 @@ class Package:
 
 
     def set_description(self, locale, desc):
-        description[locale] = desc
+        if not desc:
+            return
+        if desc.startswith('<p>'):
+            self._description[locale] = desc
+        else:
+            desc_lines = desc.split('\n')
+            desc_as = '<p>'
+            for line in desc_lines:
+                line = line.strip()
+                if line == '.':
+                    desc_as += '</p><p>'
+                    continue
+                desc_as += escape(line)
+            desc_as += '</p>'
+            self._description[locale] = desc_as
 
 
     def has_description(self):
-        return True if description else False
+        return True if self.description else False
 
 
-def read_packages_dict_from_file(archive_root, suite, component, arch):
+def read_packages_dict_from_file(archive_root, suite, component, arch, with_description=True):
     source_path = archive_root + "/dists/%s/%s/binary-%s/Packages.gz" % (suite, component, arch)
 
     f = gzip.open(source_path, 'rb')
@@ -81,6 +97,8 @@ def read_packages_dict_from_file(archive_root, suite, component, arch):
             continue
         pkg.filename = section['Filename']
         pkg.maintainer = section['Maintainer']
+        if with_description:
+            pkg.set_description('C', section.get('Description'))
 
         pkg2 = package_dict.get(pkg.name)
         if pkg2:

@@ -26,6 +26,14 @@ ancient-metadata:
         Please consult <a href="http://freedesktop.org/software/appstream/docs/chap-Quickstart.html">the XML quickstart guide</a> for more information.
   severity: info
 
+description-from-package:
+  text: This component gets its description from the package it is located in.<br/>
+        This has several disadvantages, like missing localization, possibly too short descriptions, too technical descriptions for users of software centers, etc.<br/>
+        Please consider writing a metainfo file for this component. In the near future, components without metainfo file might be dropped from the metadata.
+        You can consult the <a href="http://freedesktop.org/software/appstream/docs/chap-Quickstart.html">XML quickstart guide</a> for more information on how to write
+        a metainfo file.
+  severity: info
+
 svgz-decompress-error:
   text: "Unable to decompress SVGZ icon '%(icon_fname)s'. Error: %(error)s"
   severity: error

@@ -160,7 +160,7 @@ class IconHandler:
         # we need information about the whole package, not only the package-name,
         # otherwise icon-theme support won't work and we also don't know where the
         # actual .deb files are stored.
-        for name, pkg in read_packages_dict_from_file(self._mirror_dir, suite_name, component, arch_name).items():
+        for name, pkg in read_packages_dict_from_file(self._mirror_dir, suite_name, component, arch_name, with_description=False).items():
             pkg.filename = os.path.join(self._mirror_dir, pkg.filename)
             self._packages[name] = pkg
 

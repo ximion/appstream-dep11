@@ -329,6 +329,7 @@ class DEP11Generator:
 
         # drop all components which don't have packages
         self._cache.remove_orphaned_components()
+        self._cache.remove_orphaned_media()
 
 
     def forget_package(self, pkid):

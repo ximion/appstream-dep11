@@ -248,7 +248,7 @@ class DataCache:
     def remove_orphaned_components(self):
         """
         Remove components from the database, which have no package
-        assoicated with them.
+        associated with them.
         """
         gid_pkg = dict()
 

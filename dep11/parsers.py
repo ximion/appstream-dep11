@@ -27,8 +27,8 @@ import lxml.etree as et
 from xml.sax.saxutils import escape
 from io import StringIO
 
-from dep11.component import Component, Screenshot, ProvidedItemType, IconType
-from dep11.utils import str_enc_dec
+from .component import Component, Screenshot, ProvidedItemType, IconType
+from .utils import str_enc_dec
 
 def read_desktop_data(cpt, dcontent, ignore_nodisplay=False):
     '''

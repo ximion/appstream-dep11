@@ -297,6 +297,14 @@ class MetadataExtractor:
             else:
                 self._fetch_screenshots(cpt, export_path)
 
+            # Since not all software ships a metainfo file yet, we add the package description as metadata to those
+            # which don't, to get them to show up in software centers.
+            # In the long run, this functionality will be phased out in favor of an all-metainfo approach.
+            if not cpt.description and not cpt.has_ignore_reason():
+                if pkg.has_description():
+                    cpt.description = pkg.description
+                    cpt.add_hint("description-from-package")
+
         return cpts
 
     def process(self, pkg, metainfo_files=None):
