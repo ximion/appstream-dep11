@@ -359,35 +359,37 @@ class DEP11Generator:
             log.error("Suite '%s' not found!" % (suite_name))
             return False
 
-        pkid_filelist = dict()
         for component in suite['components']:
             for arch in suite['architectures']:
+                pkid_filelist = dict()
                 for fname, pkg in parse_contents_file(self._archive_root, suite_name, component, arch):
                     if not pkid_filelist.get(pkg.pkid):
                         pkid_filelist[pkg.pkid] = list()
                     pkid_filelist[pkg.pkid].append(fname)
 
-        for pkid, filelist in pkid_filelist.items():
-            ignore = True
-            for f in filelist:
-                if 'usr/share/applications/' in f:
-                    ignore = False
-                    break
-                if 'usr/share/appdata/' in f:
-                    ignore = False
-                    break
-                if '/pkgconfig/' in f:
-                    ignore = False
-                    break
+                for pkid, filelist in pkid_filelist.items():
+                    ignore = True
+                    for f in filelist:
+                        if 'usr/share/applications/' in f:
+                            ignore = False
+                            break
+                        if 'usr/share/appdata/' in f:
+                            ignore = False
+                            break
+                        if '/pkgconfig/' in f:
+                            ignore = False
+                            break
 
-            if ignore:
-                if self._cache.is_ignored(pkid):
-                    log.info("Package is already ignored: {}".format(pkid))
-                elif self._cache.package_exists(pkid):
-                    log.warning("Tried to ignore package which actually exists and has data: {}".format(pkid))
-                else:
-                    log.info("Ignoring package: {}".format(pkid))
-                    self._cache.set_package_ignore(pkid)
+                    if not ignore:
+                        continue
+
+                    if self._cache.is_ignored(pkid):
+                        log.info("Package is already ignored: {}".format(pkid))
+                    elif self._cache.package_exists(pkid):
+                        log.warning("Tried to ignore package which actually exists and has data: {}".format(pkid))
+                    else:
+                        log.info("Ignoring package: {}".format(pkid))
+                        self._cache.set_package_ignore(pkid)
 
 
 def main():
