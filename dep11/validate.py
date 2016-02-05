@@ -111,7 +111,7 @@ schema_releases = Schema({
 })
 
 schema_component = Schema({
-    Required('Type'): All(str, Any('generic', 'desktop-app', 'web-app', 'addon', 'codec', 'inputmethod', 'font')),
+    Required('Type'): All(str, Any('generic', 'desktop-app', 'web-app', 'addon', 'codec', 'inputmethod', 'font', 'firmware')),
     Required('ID'): All(str, Length(min=1)),
     Required('Name'): All(dict, Length(min=1), schema_translated),
     Required('Package'): All(str, Length(min=1)),
