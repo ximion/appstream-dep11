@@ -85,6 +85,8 @@ def read_desktop_data(cpt, dcontent, ignore_nodisplay=False):
         value = str_enc_dec(item[1])
         if not value:
             continue
+        value = value.strip()
+
         if key.startswith("name"):
             if key == 'name':
                 cpt.name['C'] = value
@@ -309,18 +311,22 @@ def read_appstream_upstream_xml(cpt, xml_content):
     for subs in root:
         locale = _get_tag_locale(subs)
 
+        value = None
+        if subs.text:
+            value = subs.text.strip()
+
         if subs.tag == 'id':
-            cpt.cid = subs.text
+            cpt.cid = value
             # INFO: legacy support, remove later
             tps = subs.attrib.get('type')
             if tps:
                 cpt.set_kind_from_string(tps)
 
         elif subs.tag == "name":
-            cpt.name[locale] = subs.text
+            cpt.name[locale] = value
 
         elif subs.tag == "summary":
-            cpt.summary[locale] = subs.text
+            cpt.summary[locale] = value
 
         elif subs.tag == "description":
             desc = _parse_description_tag(subs)
@@ -385,24 +391,24 @@ def read_appstream_upstream_xml(cpt, xml_content):
 
         elif subs.tag == "url":
             if cpt.url:
-                cpt.url.update({subs.attrib['type']: subs.text})
+                cpt.url.update({subs.attrib['type']: value})
             else:
-                cpt.url = {subs.attrib['type']: subs.text}
+                cpt.url = {subs.attrib['type']: value}
 
         elif subs.tag == "project_license":
-            cpt.project_license = subs.text
+            cpt.project_license = value
 
         elif subs.tag == "project_group":
-            cpt.project_group = subs.text
+            cpt.project_group = value
 
         elif subs.tag == "developer_name":
-            cpt.developer_name[locale] = subs.text
+            cpt.developer_name[locale] = value
 
         elif subs.tag == "extends":
-            cpt.extends.append(subs.text)
+            cpt.extends.append(value)
 
         elif subs.tag == "compulsory_for_desktop":
-            cpt.compulsory_for_desktops.append(subs.text)
+            cpt.compulsory_for_desktops.append(value)
 
         elif subs.tag == "releases":
             releases = _parse_releases_tag(subs)
