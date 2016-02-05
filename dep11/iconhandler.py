@@ -254,7 +254,7 @@ class IconHandler:
                                 continue
                             info = data
                             break
-                        if self._icon_allowed(info['icon_fname']):
+                        if self._icon_allowed(info['icon_fname']) and not cpt.has_ignore_reason():
                             icon_stored = self._store_icon(info['pkg'],
                                                 cpt,
                                                 cpt_export_path,
@@ -267,7 +267,7 @@ class IconHandler:
 
             # search for the right icon iside the current package
             success, last_icon = search_store_xdg_icon(pkg)
-            if not success:
+            if not success and not cpt.has_ignore_reason():
                 # search in all packages
                 success, last_icon_2 = search_store_xdg_icon()
                 if not last_icon:
