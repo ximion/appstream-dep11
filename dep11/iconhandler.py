@@ -200,12 +200,17 @@ class IconHandler:
         cpt.set_icon(IconType.CACHED, None)
 
         success = False
-        ignore_icon = False
+        last_icon = False
         if icon_str.startswith("/"):
             if icon_str[1:] in pkg.debfile.get_filelist():
                 return self._store_icon(pkg, cpt, cpt_export_path, icon_str[1:], IconSize(64))
         else:
             icon_str = os.path.basename(icon_str)
+
+            # Small hack: Strip .png from icon files to make the XDG and Pixmap finder
+            # work properly, which add their own icon extensions and find the most suitable icon.
+            if icon_str.endswith('.png'):
+                icon_str = icon_str[:-4]
 
             # some apps define the icon suffix, so we can check early if we do not support the icon
             # FIXME: Do we support icon names which contain a dot?
@@ -217,7 +222,7 @@ class IconHandler:
             def search_store_xdg_icon(epkg=None):
                 icon_dict = self._find_icons(icon_str, self._wanted_icon_sizes, epkg)
                 if not icon_dict:
-                    return False, False
+                    return False, None
 
                 icon_stored = False
                 last_icon_name = None
@@ -257,24 +262,24 @@ class IconHandler:
                                                 size) or icon_stored
                             last_icon_name = info['icon_fname']
 
-                icon_ignored = False
-                if last_icon_name and not icon_stored:
-                    if not self._icon_allowed(last_icon_name):
-                        cpt.add_hint("icon-format-unsupported", {'icon_fname': os.path.basename(last_icon_name)})
-                        icon_ignored = True
-                return icon_stored, icon_ignored
+                return icon_stored, last_icon_name
 
 
             # search for the right icon iside the current package
-            success, ignore_icon = search_store_xdg_icon(pkg)
-            if not success and not ignore_icon:
+            success, last_icon = search_store_xdg_icon(pkg)
+            if not success:
                 # search in all packages
-                success, ignore_icon = search_store_xdg_icon()
+                success, last_icon_2 = search_store_xdg_icon()
+                if not last_icon:
+                    last_icon = last_icon_2
                 if success:
                     # we found a valid stock icon, so set that additionally to the cached one
                     cpt.set_icon(IconType.STOCK, icon_str)
+                else:
+                    if last_icon and not self._icon_allowed(last_icon):
+                        cpt.add_hint("icon-format-unsupported", {'icon_fname': os.path.basename(last_icon)})
 
-        if not success and not ignore_icon:
+        if not success and not last_icon:
             cpt.add_hint("icon-not-found", {'icon_fname': icon_str})
             return False
 
