@@ -254,7 +254,7 @@ class IconHandler:
                                 continue
                             info = data
                             break
-                        if self._icon_allowed(info['icon_fname']) and not cpt.has_ignore_reason():
+                        if self._icon_allowed(info['icon_fname']):
                             icon_stored = self._store_icon(info['pkg'],
                                                 cpt,
                                                 cpt_export_path,
@@ -321,6 +321,11 @@ class IconHandler:
         Ensures the stored icon always has the size given in "size", and renders
         vectorgraphics if necessary.
         '''
+
+        # don't store an icon if we are already ignoring this component
+        if cpt.has_ignore_reason():
+            return False
+
         svgicon = False
         if not self._icon_allowed(icon_path):
             cpt.add_hint("icon-format-unsupported", {'icon_fname': os.path.basename(icon_path)})
@@ -358,6 +363,8 @@ class IconHandler:
                                                'error': "Icon data was empty. The icon might be a symbolic link pointing at a file outside of this package. "
                                                          "Please do not do that and instead place the icons in their appropriate directories in <code>/usr/share/icons/hicolor/</code>."})
             return False
+
+        # FIXME: Maybe close the debfile again to not leak FDs? Could hurt performance though.
 
         if icon_name_orig.endswith(".svg"):
             svgicon = True
