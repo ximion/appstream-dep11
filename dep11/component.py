@@ -241,6 +241,8 @@ class Component:
 
     def __init__(self, suitename, pkg=None):
         self._suitename = suitename
+        self._pkid = None
+        self._pkgname = None
         if pkg:
             self._pkid = pkg.pkid
             self._pkgname = pkg.name
@@ -641,7 +643,8 @@ class Component:
             self._check_translated()
 
         d = dict()
-        d['Package'] = str(self._pkgname)
+        if self._pkgname:
+            d['Package'] = str(self._pkgname)
         if self.cid:
             d['ID'] = self.cid
         if self.kind:

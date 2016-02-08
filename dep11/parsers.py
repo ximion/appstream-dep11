@@ -291,11 +291,13 @@ def read_appstream_upstream_xml(cpt, xml_content):
     Reads the appdata from the xml file in usr/share/appdata.
     Sets ComponentData properties
     '''
+
     root = None
     try:
+        # Drop default namespace - some add a bogus namespace to their metainfo files which breaks the parser.
+        # When we actually start using namespaces in future, we need to handle them explicitly.
         xml_content = re.sub(r'\sxmlns="[^"]+"', '', xml_content, count=1)
         root = et.fromstring(bytes(xml_content, 'utf-8'))
-
     except Exception as e:
         cpt.add_hint("metainfo-parse-error", str(e))
         return
