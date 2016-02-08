@@ -396,9 +396,12 @@ def read_appstream_upstream_xml(cpt, xml_content):
                         ProvidedItemType.MIMETYPE, ptag_text
                     )
                 if ptag.tag == 'font':
-                    cpt.add_provided_item(
-                        ProvidedItemType.FONT, ptag_text
-                    )
+                    if not cpt.provides.get(ProvidedItemType.FONT):
+                        cpt.provides[ProvidedItemType.FONT] = list()
+
+                    font_file = ptag.attrib.get('file')
+                    if font_file:
+                        cpt.provides[ProvidedItemType.FONT].append({'file': font_file, 'name': ptag_text})
         elif subs.tag == "mimetypes":
             for mimetag in subs:
                 if mimetag.tag == "mimetype":
