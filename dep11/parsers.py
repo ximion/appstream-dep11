@@ -293,7 +293,9 @@ def read_appstream_upstream_xml(cpt, xml_content):
     '''
     root = None
     try:
+        xml_content = re.sub(r'\sxmlns="[^"]+"', '', xml_content, count=1)
         root = et.fromstring(bytes(xml_content, 'utf-8'))
+
     except Exception as e:
         cpt.add_hint("metainfo-parse-error", str(e))
         return
