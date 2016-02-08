@@ -96,7 +96,7 @@ class ReportGenerator:
 
 
     def _get_packages_for(self, suite, component, arch):
-        return read_packages_dict_from_file(self._archive_root, suite, component, arch, with_description=False).values()
+        return read_packages_dict_from_file(self._archive_root, suite, component, arch).values()
 
 
     def render_template(self, name, out_dir, out_name = None, *args, **kwargs):

@@ -58,7 +58,7 @@ def parse_contents_file(mirror_dir, suite_name, component, arch_name):
 
     # we want information about the whole package, not only the package-name
     packages_dict = dict()
-    for name, pkg in read_packages_dict_from_file(mirror_dir, suite_name, component, arch_name, with_description=False).items():
+    for name, pkg in read_packages_dict_from_file(mirror_dir, suite_name, component, arch_name).items():
         pkg.filename = os.path.join(mirror_dir, pkg.filename)
         packages_dict[name] = pkg
 

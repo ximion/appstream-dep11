@@ -112,8 +112,8 @@ class DEP11Generator:
         return mdir
 
 
-    def _get_packages_for(self, suite, component, arch):
-        return read_packages_dict_from_file(self._archive_root, suite, component, arch).values()
+    def _get_packages_for(self, suite, component, arch, with_desc=True):
+        return read_packages_dict_from_file(self._archive_root, suite, component, arch, with_description=with_desc).values()
 
 
     def make_icon_tar(self, suitename, component, pkglist):
@@ -281,7 +281,7 @@ class DEP11Generator:
             suite = self._suites_data[suite_name]
             for component in suite['components']:
                 for arch in suite['architectures']:
-                    pkglist = self._get_packages_for(suite_name, component, arch)
+                    pkglist = self._get_packages_for(suite_name, component, arch, with_desc=False)
                     for pkg in pkglist:
                         pkgids.add(pkg.pkid)
 
@@ -309,7 +309,7 @@ class DEP11Generator:
 
         for component in suite['components']:
             for arch in suite['architectures']:
-                pkglist = self._get_packages_for(suite_name, component, arch)
+                pkglist = self._get_packages_for(suite_name, component, arch, with_desc=False)
 
                 for pkg in pkglist:
                     pkid = pkg.pkid

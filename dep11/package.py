@@ -15,7 +15,9 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this program.
 
+import os
 import gzip
+import bz2
 from .debfile import DebFile
 from apt_pkg import TagFile, version_compare
 from xml.sax.saxutils import escape
@@ -87,8 +89,20 @@ class Package:
         return True if self.description else False
 
 
-def read_packages_dict_from_file(archive_root, suite, component, arch, with_description=True):
+def read_packages_dict_from_file(archive_root, suite, component, arch, with_description=False):
     source_path = archive_root + "/dists/%s/%s/binary-%s/Packages.gz" % (suite, component, arch)
+
+    pkgl10n = dict()
+    if with_description:
+        l10n_en_source_path = archive_root + "/dists/%s/%s/i18n/Translation-en.bz2" % (suite, component)
+        if os.path.exists(l10n_en_source_path):
+            l10n_file = bz2.open(l10n_en_source_path, mode='rb')
+            l10ntagf = TagFile(l10n_file)
+            for section in l10ntagf:
+                pkgname = section['Package']
+                pkgl10n[pkgname] = dict()
+                pkgl10n[pkgname]['C'] = section.get('Description-en')
+            l10n_file.close()
 
     f = gzip.open(source_path, 'rb')
     tagf = TagFile(f)
@@ -100,8 +114,12 @@ def read_packages_dict_from_file(archive_root, suite, component, arch, with_desc
             continue
         pkg.filename = section['Filename']
         pkg.maintainer = section['Maintainer']
+
         if with_description:
-            pkg.set_description('C', section.get('Description'))
+            if pkgl10n.get(pkg.name):
+                pkg.set_description('C', pkgl10n[pkg.name].get('C'))
+            else:
+                pkg.set_description('C', section.get('Description'))
 
         pkg2 = package_dict.get(pkg.name)
         if pkg2:
@@ -109,5 +127,6 @@ def read_packages_dict_from_file(archive_root, suite, component, arch, with_desc
             if compare >= 0:
                 continue
         package_dict[pkg.name] = pkg
+    f.close()
 
     return package_dict
