@@ -354,31 +354,25 @@ def read_appstream_upstream_xml(cpt, xml_content):
                         ProvidedItemType.LIBRARY, ptag_text
                     )
                 if ptag.tag == 'dbus':
-                    if not cpt.provides.get(ProvidedItemType.DBUS):
-                        cpt.provides[ProvidedItemType.DBUS] = list()
-
                     bus_kind = ptag.attrib.get('type')
                     if bus_kind == "session":
                         bus_kind = "user"
                     if bus_kind:
-                        cpt.provides[ProvidedItemType.DBUS].append({'type': bus_kind, 'service': ptag_text})
+                        cpt.add_provided_item(ProvidedItemType.DBUS, {'type': bus_kind, 'service': ptag_text})
                 if ptag.tag == 'firmware':
-                    if not cpt.provides.get(ProvidedItemType.FIRMWARE):
-                        cpt.provides[ProvidedItemType.FIRMWARE] = list()
-
                     fw_type = ptag.attrib.get('type')
                     fw_data = {'type': fw_type}
 
-                    _valid = True
+                    fw_valid = True
                     if fw_type == "flashed":
                         fw_data['guid'] = ptag_text
                     elif fw_type == "runtime":
                         fw_data['fname'] = ptag_text
                     else:
-                        _valid = False
+                        fw_valid = False
 
-                    if _valid:
-                        cpt.provides[ProvidedItemType.FIRMWARE].append(fw_data)
+                    if fw_valid:
+                        cpt.add_provided_item(ProvidedItemType.FIRMWARE, fw_data)
                 if ptag.tag == 'python2':
                     cpt.add_provided_item(
                         ProvidedItemType.PYTHON_2, ptag_text
@@ -396,12 +390,9 @@ def read_appstream_upstream_xml(cpt, xml_content):
                         ProvidedItemType.MIMETYPE, ptag_text
                     )
                 if ptag.tag == 'font':
-                    if not cpt.provides.get(ProvidedItemType.FONT):
-                        cpt.provides[ProvidedItemType.FONT] = list()
-
                     font_file = ptag.attrib.get('file')
                     if font_file:
-                        cpt.provides[ProvidedItemType.FONT].append({'file': font_file, 'name': ptag_text})
+                        cpt.add_provided_item(ProvidedItemType.FONT, {'file': font_file, 'name': ptag_text})
         elif subs.tag == "mimetypes":
             for mimetag in subs:
                 if mimetag.tag == "mimetype":
