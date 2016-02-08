@@ -341,58 +341,70 @@ def read_appstream_upstream_xml(cpt, xml_content):
             cpt.screenshots = screen
 
         elif subs.tag == "provides":
-            for bins in subs:
-                if bins.tag == "binary":
+            for ptag in subs:
+                ptag_text = None
+                if ptag.text:
+                    ptag_text = ptag.text.strip()
+                if ptag.tag == "binary":
                     cpt.add_provided_item(
-                        ProvidedItemType.BINARY, bins.text
+                        ProvidedItemType.BINARY, ptag_text
                     )
-                if bins.tag == 'library':
+                if ptag.tag == 'library':
                     cpt.add_provided_item(
-                        ProvidedItemType.LIBRARY, bins.text
+                        ProvidedItemType.LIBRARY, ptag_text
                     )
-                if bins.tag == 'dbus':
+                if ptag.tag == 'dbus':
                     if not cpt.provides.get(ProvidedItemType.DBUS):
                         cpt.provides[ProvidedItemType.DBUS] = list()
 
-                    bus_kind = bins.attrib.get('type')
+                    bus_kind = ptag.attrib.get('type')
                     if bus_kind == "session":
                         bus_kind = "user"
                     if bus_kind:
-                        cpt.provides[ProvidedItemType.DBUS].append({'type': bus_kind, 'service': bins.text})
-                if bins.tag == 'firmware':
+                        cpt.provides[ProvidedItemType.DBUS].append({'type': bus_kind, 'service': ptag_text})
+                if ptag.tag == 'firmware':
                     if not cpt.provides.get(ProvidedItemType.FIRMWARE):
                         cpt.provides[ProvidedItemType.FIRMWARE] = list()
 
-                    fw_type = bins.attrib.get('type')
+                    fw_type = ptag.attrib.get('type')
                     fw_data = {'type': fw_type}
 
                     _valid = True
                     if fw_type == "flashed":
-                        fw_data['guid'] = bins.text
+                        fw_data['guid'] = ptag_text
                     elif fw_type == "runtime":
-                        fw_data['fname'] = bins.text
+                        fw_data['fname'] = ptag_text
                     else:
                         _valid = False
 
                     if _valid:
                         cpt.provides[ProvidedItemType.FIRMWARE].append(fw_data)
-                if bins.tag == 'python2':
+                if ptag.tag == 'python2':
                     cpt.add_provided_item(
-                        ProvidedItemType.PYTHON_2, bins.text
+                        ProvidedItemType.PYTHON_2, ptag_text
                     )
-                if bins.tag == 'python3':
+                if ptag.tag == 'python3':
                     cpt.add_provided_item(
-                        ProvidedItemType.PYTHON_3, bins.text
+                        ProvidedItemType.PYTHON_3, ptag_text
                     )
-                if bins.tag == 'modalias':
+                if ptag.tag == 'modalias':
                     cpt.add_provided_item(
-                        ProvidedItemType.MODALIAS, bins.text
+                        ProvidedItemType.MODALIAS, ptag_text
                     )
-                if bins.tag == 'font':
+                if ptag.tag == 'mimetype':
                     cpt.add_provided_item(
-                        ProvidedItemType.FONT, bins.text
+                        ProvidedItemType.MIMETYPE, ptag_text
                     )
-
+                if ptag.tag == 'font':
+                    cpt.add_provided_item(
+                        ProvidedItemType.FONT, ptag_text
+                    )
+        elif subs.tag == "mimetypes":
+            for mimetag in subs:
+                if mimetag.tag == "mimetype":
+                    cpt.add_provided_item(
+                        ProvidedItemType.MIMETYPE, mimetag.text
+                    )
         elif subs.tag == "url":
             if cpt.url:
                 cpt.url.update({subs.attrib['type']: value})
