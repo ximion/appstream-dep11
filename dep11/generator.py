@@ -348,6 +348,18 @@ class DEP11Generator:
         self._cache.remove_orphaned_components()
 
 
+    def show_info(self, pkgname):
+        '''
+        Show some details we know about a package.
+        '''
+
+        print("{}:".format(pkgname))
+        for pkva, info in self._cache.get_info(pkgname):
+            print(" {}".format(pkva))
+            for e in info:
+                print("  | -> {}".format(str(e)))
+
+
     def prepopulate_cache(self, suite_name):
         '''
         Check which packages we can definitely ignore based on their contents in the Contents.gz file.
@@ -406,6 +418,7 @@ def main():
     parser.usage += " cleanup [CONFDIR]             - Remove unused data from the cache and expire media.\n"
     parser.usage += " update-reports [CONFDIR] [SUITE]   - Re-generate the metadata and issue HTML pages and update statistics.\n"
     parser.usage += " remove-processed [CONFDIR] [SUITE] - Remove information about processed or failed components.\n"
+    parser.usage += " info [CONFDIR] [PKGNAME]           - Show some details we know about a package name.\n"
     parser.usage += " forget [CONFDIR] [PKID]            - Forget a single package and data associated with it.\n"
 
     args = parser.parse_args()
@@ -476,6 +489,17 @@ def main():
             sys.exit(2)
 
         gen.forget_package(params[1])
+    elif command == "info":
+        if len(params) != 2:
+            print("Invalid number of arguments: You need to specify a DEP-11 data dir and package-name.")
+            sys.exit(1)
+        gen = DEP11Generator()
+        ret = gen.initialize(params[0])
+        if not ret:
+            print("Initialization failed, can not continue.")
+            sys.exit(2)
+
+        gen.show_info(params[1])
     elif command == "prepopulate-cache":
         if len(params) != 2:
             print("Invalid number of arguments: You need to specify a DEP-11 data dir and suite.")

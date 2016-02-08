@@ -363,3 +363,18 @@ class DataCache:
                      data_removed = True
 
         return data_removed
+
+
+    def get_info(self, pkgname):
+        """
+        Return a dict with some information we have about the package in the cache.
+        """
+
+        with self._dbenv.begin(db=self._pkgdb, write=True) as pktxn:
+            cursor = pktxn.cursor()
+            for pkid, data in cursor:
+                pkid_str = str(pkid, 'utf-8')
+                data = str(data, 'utf-8')
+                if pkid_str.startswith(pkgname+'/'):
+                     pkkey = pkid_str.split("/", 1)[1]
+                     yield pkkey, data.split("\n")
