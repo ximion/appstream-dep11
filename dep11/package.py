@@ -99,7 +99,9 @@ def read_packages_dict_from_file(archive_root, suite, component, arch, with_desc
             l10n_file = bz2.open(l10n_en_source_path, mode='rb')
             l10ntagf = TagFile(l10n_file)
             for section in l10ntagf:
-                pkgname = section['Package']
+                pkgname = section.get('Package')
+                if not pkgname:
+                    continue
                 pkgl10n[pkgname] = dict()
                 pkgl10n[pkgname]['C'] = section.get('Description-en')
             l10n_file.close()
