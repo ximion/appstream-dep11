@@ -18,6 +18,7 @@
 import os
 import gzip
 import bz2
+import logging as log
 from .debfile import DebFile
 from apt_pkg import TagFile, version_compare
 from xml.sax.saxutils import escape
@@ -100,15 +101,18 @@ def read_packages_dict_from_file(archive_root, suite, component, arch, with_desc
     if with_description:
         l10n_en_source_path = archive_root + "/dists/%s/%s/i18n/Translation-en.bz2" % (suite, component)
         if os.path.exists(l10n_en_source_path):
-            l10n_file = bz2.open(l10n_en_source_path, mode='rb')
-            l10ntagf = TagFile(l10n_file)
-            for section in l10ntagf:
-                pkgname = section.get('Package')
-                if not pkgname:
-                    continue
-                pkgl10n[pkgname] = dict()
-                pkgl10n[pkgname]['C'] = section.get('Description-en')
-            l10n_file.close()
+            try:
+                l10n_file = bz2.open(l10n_en_source_path, mode='rb')
+                l10ntagf = TagFile(l10n_file)
+                for section in l10ntagf:
+                    pkgname = section.get('Package')
+                    if not pkgname:
+                        continue
+                    pkgl10n[pkgname] = dict()
+                    pkgl10n[pkgname]['C'] = section.get('Description-en')
+                l10n_file.close()
+            except Exception as e:
+                log.warning("Could not use i18n file '{}': {}".format(l10n_en_source_path, str(e)))
 
     f = gzip.open(source_path, 'rb')
     tagf = TagFile(f)
