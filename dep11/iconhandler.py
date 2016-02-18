@@ -212,13 +212,6 @@ class IconHandler:
             if icon_str.endswith('.png'):
                 icon_str = icon_str[:-4]
 
-            # some apps define the icon suffix, so we can check early if we do not support the icon
-            # FIXME: Do we support icon names which contain a dot?
-            if ("." in icon_str) and (not self._icon_allowed(icon_str)):
-                cpt.add_hint("icon-format-unsupported", {'icon_fname': icon_str})
-                return False
-
-
             def search_store_xdg_icon(epkg=None):
                 icon_dict = self._find_icons(icon_str, self._wanted_icon_sizes, epkg)
                 if not icon_dict:
