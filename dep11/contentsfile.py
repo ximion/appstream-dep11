@@ -38,10 +38,7 @@ def _file_pkg_from_contents_line(raw_line):
     parts = line.split(" ", 1)
     path = parts[0].strip()
     group_pkg = parts[1].strip()
-    if "/" in group_pkg:
-        pkgname = group_pkg.split("/", 1)[1].strip()
-    else:
-        pkgname = group_pkg
+    pkgname = group_pkg.split("/")[-1].strip()
     return path, pkgname
 
 
