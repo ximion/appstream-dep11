@@ -48,7 +48,7 @@ def extract_metadata(mde, sn, pkg):
     mde.reopen_cache()
     cpts = mde.process(pkg)
 
-    msgtxt = "Processed: %s (%s/%s), found %i" % (pkg.name, sn, pkg.arch, len(cpts))
+    msgtxt = "Processed ({0}/{1}): %s (%s/%s), found %i" % (pkg.name, sn, pkg.arch, len(cpts))
     return msgtxt
 
 
@@ -210,8 +210,11 @@ class DEP11Generator:
 
                 # set up multiprocessing
                 with mp.Pool(maxtasksperchild=24) as pool:
+                    count = 1
                     def handle_results(message):
-                        log.info(message)
+                        nonlocal count
+                        log.info(message.format(count, len(pkgs_todo)))
+                        count += 1
 
                     def handle_error(e):
                         traceback.print_exception(type(e), e, e.__traceback__)
