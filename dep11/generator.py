@@ -49,7 +49,7 @@ def extract_metadata(mde, sn, pkg):
     cpts = mde.process(pkg)
 
     msgtxt = "Processed ({0}/{1}): %s (%s/%s), found %i" % (pkg.name, sn, pkg.arch, len(cpts))
-    return msgtxt
+    return (msgtxt, all(not x.has_ignore_reason() for x in cpts))
 
 
 class DEP11Generator:
@@ -174,6 +174,7 @@ class DEP11Generator:
 
         for component in suite['components']:
             all_cpt_pkgs = list()
+            new_components = False
             for arch in suite['architectures']:
                 pkglist = self._get_packages_for(suite_name, component, arch)
 
@@ -211,8 +212,11 @@ class DEP11Generator:
                 # set up multiprocessing
                 with mp.Pool(maxtasksperchild=24) as pool:
                     count = 1
-                    def handle_results(message):
+                    def handle_results(result):
                         nonlocal count
+                        nonlocal new_components
+                        (message, any_components) = result
+                        new_components = new_components or any_components
                         log.info(message.format(count, len(pkgs_todo)))
                         count += 1
 
@@ -241,31 +245,38 @@ class DEP11Generator:
                 hints_dir = os.path.join(self._export_dir, "hints", suite_name, component)
                 if not os.path.exists(hints_dir):
                     os.makedirs(hints_dir)
+                hints_fname = os.path.join(hints_dir, "DEP11Hints_%s.yml.gz" % (arch))
+                hints_f = gzip.open(hints_fname+".new", 'wb')
+
+                dep11_header = get_dep11_header(self._repo_name, suite_name, component, os.path.join(self._dep11_url, component), suite.get('dataPriority', 0))
+
                 dep11_dir = os.path.join(self._export_dir, "data", suite_name, component)
                 if not os.path.exists(dep11_dir):
                     os.makedirs(dep11_dir)
 
-                # now write data to disk
-                hints_fname = os.path.join(hints_dir, "DEP11Hints_%s.yml.gz" % (arch))
-                data_fname = os.path.join(dep11_dir, "Components-%s.yml.gz" % (arch))
+                if not new_components:
+                    log.info("Skipping %s/%s/%s, no components in any of the new packages.", suite_name, component, arch)
+                else:
+                    # now write data to disk
+                    data_fname = os.path.join(dep11_dir, "Components-%s.yml.gz" % (arch))
 
-                hints_f = gzip.open(hints_fname+".new", 'wb')
-                data_f = gzip.open(data_fname+".new", 'wb')
+                    data_f = gzip.open(data_fname+".new", 'wb')
 
-                dep11_header = get_dep11_header(self._repo_name, suite_name, component, os.path.join(self._dep11_url, component), suite.get('dataPriority', 0))
-                data_f.write(bytes(dep11_header, 'utf-8'))
+                    data_f.write(bytes(dep11_header, 'utf-8'))
 
                 for pkg in pkglist:
                     pkid = pkg.pkid
-                    data = self._cache.get_metadata_for_pkg(pkid)
-                    if data:
-                        data_f.write(bytes(data, 'utf-8'))
+                    if new_components:
+                        data = self._cache.get_metadata_for_pkg(pkid)
+                        if data:
+                            data_f.write(bytes(data, 'utf-8'))
                     hint = self._cache.get_hints(pkid)
                     if hint:
                         hints_f.write(bytes(hint, 'utf-8'))
 
-                data_f.close()
-                safe_move_file(data_fname+".new", data_fname)
+                if new_components:
+                    data_f.close()
+                    safe_move_file(data_fname+".new", data_fname)
 
                 hints_f.close()
                 safe_move_file(hints_fname+".new", hints_fname)
