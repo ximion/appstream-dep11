@@ -1,5 +1,8 @@
 # Debian AppStream DEP-11 tools
 
+*IMPORTANT:* This module will be replaced by [appstream-generator](https://github.com/ximion/appstream-generator) soon, please
+submit improvements and issues there, so we can address them at the new codebase.
+
 This Python module allows you to generate and validate DEP-11 metadata,
 which is Debians implementation of AppStream.
 The tools can be used standalone, or be integrated with other services.
