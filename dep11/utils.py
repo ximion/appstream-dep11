@@ -25,6 +25,9 @@ def str_enc_dec(val):
     Handles encoding decoding for localized values.
     '''
 
+    if not val:
+        return None
+
     if isinstance(val, str):
         val = bytes(val, 'utf-8')
     val = val.decode("utf-8", "replace")

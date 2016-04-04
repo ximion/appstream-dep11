@@ -232,7 +232,9 @@ def _parse_screenshots_tag(subs):
                     else:
                         key = 'C'
 
-                    shot.caption[key] = str_enc_dec(tags.text)
+                    caption_text = str_enc_dec(tags.text)
+                    if caption_text:
+                        shot.caption[key] = caption_text
                 if tags.tag == 'image':
                     shot.set_source_image(tags.text, 0, 0)
 
