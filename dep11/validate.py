@@ -301,7 +301,7 @@ class DEP11Validator:
         if fname.endswith(".gz"):
             f = gzip.open(fname, 'r')
         else:
-            f = open(fname, 'r')
+            f = open(fname, 'rb')
 
         data = str(f.read(), 'utf-8')
         f.close()
