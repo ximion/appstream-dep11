@@ -198,7 +198,7 @@ class MetadataExtractor:
 
         # process all AppStream XML files
         for meta_file in metainfo_files:
-            if meta_file.endswith(".xml") and meta_file.startswith("usr/share/appdata"):
+            if meta_file.endswith(".xml") and (meta_file.startswith("usr/share/metainfo") or meta_file.startswith("usr/share/appdata")):
                 xml_content = None
                 cpt = Component(self._suite_name, pkg)
 

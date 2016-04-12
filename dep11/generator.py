@@ -399,10 +399,10 @@ class DEP11Generator:
                         if 'usr/share/applications/' in f:
                             ignore = False
                             break
-                        if 'usr/share/appdata/' in f:
+                        if 'usr/share/metainfo/' in f:
                             ignore = False
                             break
-                        if '/pkgconfig/' in f:
+                        if 'usr/share/appdata/' in f:
                             ignore = False
                             break
 

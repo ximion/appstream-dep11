@@ -290,7 +290,7 @@ def _parse_releases_tag(relstag):
 
 def read_appstream_upstream_xml(cpt, xml_content):
     '''
-    Reads the appdata from the xml file in usr/share/appdata.
+    Reads the metadata from the xml file in usr/share/metainfo.
     Sets ComponentData properties
     '''
 
