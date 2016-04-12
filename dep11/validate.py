@@ -31,6 +31,7 @@ schema_header = Schema({
     Required('MediaBaseUrl'): All(Url()),
     'Time': All(str),
     'Priority': All(int),
+    'Architecture': All(str),
 })
 
 schema_provides_dbus = Schema({
