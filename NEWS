@@ -1,3 +1,80 @@
+Version 0.5.0
+~~~~~~~~~~~~~~
+Released: 2016-04-12
+
+Notes:
+ * The DEP-11 generator is obsolete and will soon be replaced by the more versatile and faster
+   appstream-generator. See https://github.com/ximion/appstream-generator for details.
+
+Features:
+ * Move dep11-generator and dep11-validate as importable scripts (Didier Roche)
+ * Add a generic utility to get data dir (Didier Roche)
+ * Look templates and hinting using get_data_dir() (Didier Roche)
+ * generator: Output a progress count (Iain Lane)
+ * component: Add the current timestamp to the header (Iain Lane)
+ * iconfinder: look up icons according to XDG spec (Lars Uebernickel)
+ * Introduce baseSuite config option (Lars Uebernickel)
+ * Add a cronjob example for running the generator (Matthias Klumpp)
+ * Make report / html generator use the database and act suite-based (Matthias Klumpp)
+ * Split report generator into it's own file (Matthias Klumpp)
+ * Drop X-Source-Checksum from the output (Matthias Klumpp)
+ * Recognize X-AppStream-Ignore entry in .desktop files (Matthias Klumpp)
+ * Store, plot & display statistical data (Matthias Klumpp)
+ * Allow adding the Priority field to DEP-11 headers automatically (Matthias Klumpp)
+ * Follow symbolic links when extracting package metadata (Matthias Klumpp)
+ * Allow config to override the default icon-theme selection (Matthias Klumpp)
+ * Cleanup old HTML pages (Matthias Klumpp)
+ * Disable lmdb metasync (Matthias Klumpp)
+ * Move .deb handling methods to own class (Matthias Klumpp)
+ * plot: Make markers smaller (Matthias Klumpp)
+ * Display generator version on rendered HTML pages (Matthias Klumpp)
+ * Add forget command to drop a single package and its data from the cache (Matthias Klumpp)
+ * Allow setting a stock icon additionally to a cached icon (Matthias Klumpp)
+ * Make screenshots a proper class (Matthias Klumpp)
+ * Be more forgiving when encountering a broken index.theme (Matthias Klumpp)
+ * Use package description if not metainfo file was found (Matthias Klumpp)
+ * Add method to quickly ignore uninteresting packages on first run (Matthias Klumpp)
+ * Add missing firmware component to validator (Matthias Klumpp)
+ * Strip values of metainfo files before adding them to the output (Matthias Klumpp)
+ * Add option to display details about a package name (Matthias Klumpp)
+ * Process mimetype data found in metainfo files (Matthias Klumpp)
+ * Properly handle font provided type (Matthias Klumpp)
+
+Bugfixes:
+ * Earlier PIL versions didn't have close() - 'del' the object instead (Iain Lane)
+ * Strip default namespace from metainfo XML (Iain Lane)
+ * contentsfile: Accept any number of '/'-separate components in package name (Iain Lane)
+ * generator: Don't write the output file if no new components were found (Iain Lane)
+ * Find icons for components in !main referencing iconthemes in main (Matthias Klumpp)
+ * Don't close & open the cache in reopen() if it is already opened (Matthias Klumpp)
+ * Use YAML safe_load_all in validator (Matthias Klumpp)
+ * Reprocess metadata with every upload of a new package version (Matthias Klumpp)
+ * Use the Agg backend for plotting, to work around pyplot issue (Matthias Klumpp)
+ * Search for stock icons in the whole icontheme (Matthias Klumpp)
+ * Don't crash if theme isn't found (Matthias Klumpp)
+ * Don't add absolute path to .deb package to error messages (Matthias Klumpp)
+ * Don't be case-sensitive when checking for invisible apps (Matthias Klumpp)
+ * Generally be case-insensitive when scanning for .desktop-file ignore reasons (Matthias Klumpp)
+ * Make sure modalias and font are supported provided items (Matthias Klumpp)
+ * Correctly detect generic components and broken component types (Matthias Klumpp)
+ * Ensure we don't accumulate cruft in the media cache (Matthias Klumpp)
+ * Don't override the real type when persing metadata (Matthias Klumpp)
+ * validator: Priority is an integer, not string (Matthias Klumpp)
+ * Don't duplicate content in HTML page titles (Matthias Klumpp)
+ * Validate font provided type correctly (Matthias Klumpp)
+ * Validate !font provided-items correctly (Matthias Klumpp)
+ * validator: Correctly valiidate remote and local icons (Matthias Klumpp)
+ * Rename DEP11Component to Component and drop unneeded constructor parameters (Matthias Klumpp)
+ * Skip processing a suite without packages early (Matthias Klumpp)
+ * Fix icon handler threshold logic (Matthias Klumpp)
+ * Don't keep DebFiles open longer than necessary (Matthias Klumpp)
+ * Catch a few more corner cases in the iconhandler (Matthias Klumpp)
+ * Never store an icon for an ignored component (Matthias Klumpp)
+ * Drop the early icon filetype check (Matthias Klumpp)
+ * Don't crash on empty screenshot captions (Matthias Klumpp)
+ * Load data in /usr/share/metainfo (Matthias Klumpp)
+ * Correctly validate uncompressed data (Matthias Klumpp)
+
 Version 0.4.0
 ~~~~~~~~~~~~~~
 Released: 2015-11-07
